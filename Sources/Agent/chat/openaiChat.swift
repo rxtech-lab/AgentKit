@@ -7,23 +7,145 @@ public enum OpenAIRole: String, Codable {
     case system
 }
 
-public struct OpenAIMessage: Hashable {
-    public var id: String
-    public var role: OpenAIRole
+public enum OpenAIContentType: String, Codable {
+    case text
+    case image
+    case audio
+}
+
+public struct OpenAITextContentPart: Hashable {
+    public var text: String
+    public let type: OpenAIContentType = .text
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
+public struct OpenAIImageContentPart: Hashable {
+    public let type: OpenAIContentType = .image
+
+    public struct ImageUrl: Hashable {
+        public enum Detail: String, Codable {
+            case auto
+            case low
+            case high
+        }
+
+        public let url: String
+        public let detail: Detail?
+
+        public init(url: String, detail: Detail?) {
+            self.url = url
+            self.detail = detail
+        }
+    }
+
+    public let imageUrl: ImageUrl
+
+    public init(imageUrl: ImageUrl) {
+        self.imageUrl = imageUrl
+    }
+}
+
+public struct OpenAIAudioContentPart: Hashable {
+    public let type: OpenAIContentType = .audio
+
+    public struct InputAudio: Hashable {
+        public enum Format: String, Codable {
+            case wav
+            case mp3
+        }
+
+        public var data: String
+        public var format: Format
+
+        public init(data: String, format: Format) {
+            self.data = data
+            self.format = format
+        }
+    }
+
+    public let inputAudio: InputAudio
+
+    public init(inputAudio: InputAudio) {
+        self.inputAudio = inputAudio
+    }
+}
+
+public enum OpenAIContentPart: Hashable {
+    case text(OpenAITextContentPart)
+    case image(OpenAIImageContentPart)
+    case audio(OpenAIAudioContentPart)
+}
+
+public enum OpenAIContent: Hashable {
+    case text(String)
+    case contentParts([OpenAIContentPart])
+}
+
+public struct OpenAIToolCall: Hashable {
+    public struct Function: Hashable {
+        public let name: String
+        public let arguments: String
+
+        public init(name: String, arguments: String) {
+            self.name = name
+            self.arguments = arguments
+        }
+    }
+
+    public let id: String
+    public let type: String
+    public let function: Function
+
+    public init(id: String, type: String, function: Function) {
+        self.id = id
+        self.type = type
+        self.function = function
+    }
+}
+
+public struct OpenAIUserMessage: Hashable {
+    public let role: OpenAIRole = .user
     public var content: String
     public var createdAt: Date
 
-    public init(role: OpenAIRole, content: String) {
-        self.id = UUID().uuidString
-        self.role = role
-        self.content = content
-        self.createdAt = Date()
-    }
-
-    public init(id: String, role: OpenAIRole, content: String, createdAt: Date) {
-        self.id = id
-        self.role = role
+    public init(content: String, createdAt: Date) {
         self.content = content
         self.createdAt = createdAt
     }
+}
+
+public struct OpenAIAssistantMessage: Hashable {
+    public let role: OpenAIRole = .assistant
+    public let content: String
+    public let toolCalls: [OpenAIToolCall]
+}
+
+public struct OpenAISystemMessage: Hashable {
+    public let role: OpenAIRole = .system
+    public let content: String
+
+    public init(content: String) {
+        self.content = content
+    }
+}
+
+public struct OpenAIToolMessage: Hashable {
+    public let role: OpenAIRole = .tool
+    public let content: String
+    public let toolCallId: String
+
+    public init(content: String, toolCallId: String) {
+        self.content = content
+        self.toolCallId = toolCallId
+    }
+}
+
+public enum OpenAIMessage: Hashable {
+    case user(OpenAIUserMessage)
+    case assistant(OpenAIAssistantMessage)
+    case system(OpenAISystemMessage)
+    case tool(OpenAIToolMessage)
 }
