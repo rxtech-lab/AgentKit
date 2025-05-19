@@ -5,6 +5,7 @@
 //  Created by Qiwei Li on 5/19/25.
 //
 import Agent
+import Shimmer
 import SwiftUI
 
 struct OpenAIMessageRow: View {
@@ -25,6 +26,20 @@ struct OpenAIMessageRow: View {
 
     private var role: OpenAIRole {
         return message.role
+    }
+
+    private var hasToolCalls: Bool {
+        if case .assistant(let assistantMessage) = message {
+            return !assistantMessage.toolCalls.isEmpty
+        }
+        return false
+    }
+
+    private var toolCalls: [OpenAIToolCall] {
+        if case .assistant(let assistantMessage) = message {
+            return assistantMessage.toolCalls
+        }
+        return []
     }
 
     public init(
@@ -68,6 +83,21 @@ struct OpenAIMessageRow: View {
                         .foregroundColor(.primary)
                     Spacer()
                 }
+            }
+
+            // Tool calls for assistant messages
+            if role == .assistant && hasToolCalls {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(toolCalls, id: \.id) { toolCall in
+                        OpenAIToolMessageRow(
+                            toolCall: toolCall,
+                            messages: messages,
+                            status: status
+                        )
+                    }
+                }
+                .padding(.leading, 12)
+                .padding(.top, 4)
             }
 
             // action buttons
@@ -149,7 +179,7 @@ struct OpenAIMessageRow: View {
 }
 
 #Preview {
-    Group {
+    ScrollView {
         OpenAIMessageRow(id: "1", message: .user(.init(content: "Hello world")))
         OpenAIMessageRow(
             id: "1",
@@ -158,13 +188,33 @@ struct OpenAIMessageRow: View {
             id: "1",
             message: .assistant(
                 .init(
-                    content: "How can I help you?",
+                    content: "I'll check the weather for you.",
                     toolCalls: [
                         .init(
                             id: "tool1", type: .function,
-                            function: .init(name: "GetWeather", arguments: ""))
-                    ], audio: nil)))
-        OpenAIMessageRow(id: "1", message: .tool(.init(content: "", toolCallId: "tool1")))
+                            function: .init(
+                                name: "GetWeather", arguments: "{\"location\": \"New York\"}"))
+                    ], audio: nil)),
+            messages: [
+                .tool(
+                    .init(
+                        content: "{\"temperature\": 72, \"condition\": \"sunny\"}",
+                        toolCallId: "tool1"))
+            ]
+        )
+        OpenAIMessageRow(
+            id: "2",
+            message: .assistant(
+                .init(
+                    content: "I'm checking the weather for you.",
+                    toolCalls: [
+                        .init(
+                            id: "tool2", type: .function,
+                            function: .init(
+                                name: "GetWeather", arguments: "{\"location\": \"Los Angeles\"}"))
+                    ], audio: nil)),
+            status: .loading
+        )
     }
     .padding()
 }
