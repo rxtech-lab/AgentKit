@@ -1,6 +1,15 @@
 {
-  "originHash" : "1e6980d0326ad44fd4c50d7a8c3f646601c27077f0fc41b1d49fd1503fc3a50d",
+  "originHash" : "3755392649bcbfad7650839340d255b5fddf9eea05f5e03124c3b8b56e0656b9",
   "pins" : [
+    {
+      "identity" : "keyvaluecoder",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swhitty/KeyValueCoder",
+      "state" : {
+        "revision" : "b6757897de7d616fd614158f37fd2b178578caf0",
+        "version" : "0.7.0"
+      }
+    },
     {
       "identity" : "networkimage",
       "kind" : "remoteSourceControl",

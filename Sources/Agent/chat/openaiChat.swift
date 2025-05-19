@@ -1,19 +1,19 @@
 import Foundation
 
-public enum OpenAIRole: String, Codable {
+public enum OpenAIRole: String, Codable, Sendable {
     case user
     case assistant
     case tool
     case system
 }
 
-public enum OpenAIContentType: String, Codable {
+public enum OpenAIContentType: String, Codable, Sendable {
     case text
     case image
     case audio
 }
 
-public struct OpenAITextContentPart: Hashable, Codable {
+public struct OpenAITextContentPart: Hashable, Codable, Sendable {
     public var text: String
     public var type: OpenAIContentType = .text
 
@@ -22,11 +22,11 @@ public struct OpenAITextContentPart: Hashable, Codable {
     }
 }
 
-public struct OpenAIImageContentPart: Hashable, Codable {
+public struct OpenAIImageContentPart: Hashable, Codable, Sendable {
     public var type: OpenAIContentType = .image
 
-    public struct ImageUrl: Hashable, Codable {
-        public enum Detail: String, Codable {
+    public struct ImageUrl: Hashable, Codable, Sendable {
+        public enum Detail: String, Codable, Sendable {
             case auto
             case low
             case high
@@ -48,11 +48,11 @@ public struct OpenAIImageContentPart: Hashable, Codable {
     }
 }
 
-public struct OpenAIAudioContentPart: Hashable, Codable {
+public struct OpenAIAudioContentPart: Hashable, Codable, Sendable {
     public var type: OpenAIContentType = .audio
 
-    public struct InputAudio: Hashable, Codable {
-        public enum Format: String, Codable {
+    public struct InputAudio: Hashable, Codable, Sendable {
+        public enum Format: String, Codable, Sendable {
             case wav
             case mp3
         }
@@ -73,7 +73,7 @@ public struct OpenAIAudioContentPart: Hashable, Codable {
     }
 }
 
-public enum OpenAIContentPart: Hashable, Codable {
+public enum OpenAIContentPart: Hashable, Codable, Sendable {
     case text(OpenAITextContentPart)
     case image(OpenAIImageContentPart)
     case audio(OpenAIAudioContentPart)
@@ -117,7 +117,7 @@ public enum OpenAIContentPart: Hashable, Codable {
     }
 }
 
-public enum OpenAIContent: Hashable, Codable {
+public enum OpenAIContent: Hashable, Codable, Sendable {
     case text(String)
     case contentParts([OpenAIContentPart])
 
@@ -142,12 +142,12 @@ public enum OpenAIContent: Hashable, Codable {
     }
 }
 
-public struct OpenAIToolCall: Hashable, Codable {
-    public enum ToolType: String, Codable {
+public struct OpenAIToolCall: Hashable, Codable, Sendable {
+    public enum ToolType: String, Codable, Sendable {
         case function
     }
 
-    public struct Function: Hashable, Codable {
+    public struct Function: Hashable, Codable, Sendable {
         public let name: String
         public let arguments: String
 
@@ -168,7 +168,7 @@ public struct OpenAIToolCall: Hashable, Codable {
     }
 }
 
-public struct OpenAIUserMessage: Hashable, Codable {
+public struct OpenAIUserMessage: Hashable, Codable, Sendable {
     public var role: OpenAIRole = .user
     public var content: String
     public var createdAt: Date
@@ -179,8 +179,8 @@ public struct OpenAIUserMessage: Hashable, Codable {
     }
 }
 
-public struct OpenAIAssistantMessage: Hashable, Codable {
-    public struct Audio: Hashable, Codable {
+public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
+    public struct Audio: Hashable, Codable, Sendable {
         public let id: String
         public let data: String
         public let transcript: String
@@ -202,11 +202,13 @@ public struct OpenAIAssistantMessage: Hashable, Codable {
 
     public let id: String?
     public var role: OpenAIRole = .assistant
-    public let content: String
-    public let toolCalls: [OpenAIToolCall]
+    public let content: String?
+    public let toolCalls: [OpenAIToolCall]?
     public let audio: Audio?
 
-    public init(id: String? = nil, content: String, toolCalls: [OpenAIToolCall], audio: Audio?) {
+    public init(
+        id: String? = nil, content: String? = nil, toolCalls: [OpenAIToolCall]? = nil, audio: Audio?
+    ) {
         self.id = id
         self.content = content
         self.toolCalls = toolCalls
@@ -224,7 +226,7 @@ public struct OpenAIAssistantMessage: Hashable, Codable {
     }
 }
 
-public struct OpenAISystemMessage: Hashable, Codable {
+public struct OpenAISystemMessage: Hashable, Codable, Sendable {
     public var role: OpenAIRole = .system
     public let content: String
 
@@ -233,7 +235,7 @@ public struct OpenAISystemMessage: Hashable, Codable {
     }
 }
 
-public struct OpenAIToolMessage: Hashable, Codable {
+public struct OpenAIToolMessage: Hashable, Codable, Sendable {
     public var role: OpenAIRole = .tool
     public let content: String
     public let toolCallId: String
@@ -244,7 +246,7 @@ public struct OpenAIToolMessage: Hashable, Codable {
     }
 }
 
-public enum OpenAIMessage: Hashable, Codable {
+public enum OpenAIMessage: Hashable, Codable, Sendable {
     case user(OpenAIUserMessage)
     case assistant(OpenAIAssistantMessage)
     case system(OpenAISystemMessage)
@@ -299,7 +301,7 @@ public enum OpenAIMessage: Hashable, Codable {
         }
     }
 
-    public var content: String {
+    public var content: String? {
         switch self {
         case .user(let message):
             return message.content
