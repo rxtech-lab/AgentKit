@@ -118,9 +118,37 @@ public struct OpenAIUserMessage: Hashable {
 }
 
 public struct OpenAIAssistantMessage: Hashable {
+    public struct Audio: Hashable {
+        public let id: String
+        public let data: String
+        public let transcript: String
+
+        public init(id: String, data: String, transcript: String) {
+            self.id = id
+            self.data = data
+            self.transcript = transcript
+        }
+    }
+
     public let role: OpenAIRole = .assistant
     public let content: String
     public let toolCalls: [OpenAIToolCall]
+    public let audio: Audio?
+
+    public init(content: String, toolCalls: [OpenAIToolCall], audio: Audio?) {
+        self.content = content
+        self.toolCalls = toolCalls
+        self.audio = audio
+    }
+
+    /// Convert the response assistant message to request message. Will drop the audio.
+    public func toRequestAssistantMessage() -> OpenAIAssistantMessage {
+        return OpenAIAssistantMessage(
+            content: content,
+            toolCalls: toolCalls,
+            audio: nil
+        )
+    }
 }
 
 public struct OpenAISystemMessage: Hashable {

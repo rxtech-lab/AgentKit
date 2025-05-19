@@ -36,5 +36,9 @@ let package = Package(
             name: "AgentLayoutTests",
             dependencies: ["AgentLayout"]
         ),
+        .testTarget(
+            name: "AgentTests",
+            dependencies: ["Agent"]
+        ),
     ]
 )
