@@ -6,59 +6,30 @@ class ParseOpenAIMessageTests: XCTestCase {
 
     func testParseOpenAIMessage() {
         let data = """
-                        {
-            "role": "assistant",
-            "refusal": "string",
-            "content": "string",
-            "tool_calls": [
-                {
-                "id": "string",
-                "type": "function",
-                "function": {
+            {
+                "role": "assistant",
+                "refusal": "string",
+                "content": "string",
+                "tool_calls": [
+                    {
+                    "id": "string",
+                    "type": "function",
+                    "function": {
+                        "name": "string",
+                        "arguments": "string"
+                    }
+                    }
+                ],
+                "function_call": {
                     "name": "string",
                     "arguments": "string"
-                }
-                }
-            ],
-            "function_call": {
-                "name": "string",
-                "arguments": "string"
-            },
-            "audio": {
-                "id": "string",
-                "expires_at": 0,
-                "data": "string",
-                "transcript": "string"
-            },
-            "context": {
-                "citations": [
-                {
-                    "content": "string",
-                    "title": "string",
-                    "url": "string",
-                    "filepath": "string",
-                    "chunk_id": "string",
-                    "rerank_score": 0.1
-                }
-                ],
-                "intent": "string",
-                "all_retrieved_documents": [
-                {
-                    "content": "string",
-                    "title": "string",
-                    "url": "string",
-                    "filepath": "string",
-                    "chunk_id": "string",
-                    "rerank_score": 0.1,
-                    "search_queries": [
-                    "string"
-                    ],
-                    "data_source_index": 0,
-                    "original_search_score": 0.1,
-                    "filter_reason": "score"
-                }
-                ]
-            }
+                },
+                "audio": {
+                    "id": "string",
+                    "expires_at": 0,
+                    "data": "string",
+                    "transcript": "string"
+                },
             }
             """
 

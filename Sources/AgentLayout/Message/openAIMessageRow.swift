@@ -8,6 +8,7 @@ import Agent
 import SwiftUI
 
 struct OpenAIMessageRow: View {
+    let id: String
     var message: OpenAIMessage
     @State private var isHovering = false
     @State private var isEditing = false
@@ -22,10 +23,6 @@ struct OpenAIMessageRow: View {
 
     private var role: OpenAIRole {
         return message.role
-    }
-
-    private var id: String {
-        return message.id
     }
 
     var body: some View {
@@ -138,10 +135,10 @@ struct OpenAIMessageRow: View {
 
 #Preview {
     Group {
-        OpenAIMessageRow(message: .init(role: .user, content: "Hello world"))
-        OpenAIMessageRow(message: .init(role: .assistant, content: "Hello world"))
+        // OpenAIMessageRow(message: .init(role: .user, content: "Hello world"))
+        // OpenAIMessageRow(message: .init(role: .assistant, content: "Hello world"))
 
-        OpenAIMessageRow(message: .init(role: .tool, content: "Hello world"))
+        // OpenAIMessageRow(message: .init(role: .tool, content: "Hello world"))
     }
     .padding()
 }

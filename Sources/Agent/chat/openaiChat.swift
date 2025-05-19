@@ -13,19 +13,19 @@ public enum OpenAIContentType: String, Codable {
     case audio
 }
 
-public struct OpenAITextContentPart: Hashable {
+public struct OpenAITextContentPart: Hashable, Codable {
     public var text: String
-    public let type: OpenAIContentType = .text
+    public var type: OpenAIContentType = .text
 
     public init(text: String) {
         self.text = text
     }
 }
 
-public struct OpenAIImageContentPart: Hashable {
-    public let type: OpenAIContentType = .image
+public struct OpenAIImageContentPart: Hashable, Codable {
+    public var type: OpenAIContentType = .image
 
-    public struct ImageUrl: Hashable {
+    public struct ImageUrl: Hashable, Codable {
         public enum Detail: String, Codable {
             case auto
             case low
@@ -48,10 +48,10 @@ public struct OpenAIImageContentPart: Hashable {
     }
 }
 
-public struct OpenAIAudioContentPart: Hashable {
-    public let type: OpenAIContentType = .audio
+public struct OpenAIAudioContentPart: Hashable, Codable {
+    public var type: OpenAIContentType = .audio
 
-    public struct InputAudio: Hashable {
+    public struct InputAudio: Hashable, Codable {
         public enum Format: String, Codable {
             case wav
             case mp3
@@ -73,19 +73,77 @@ public struct OpenAIAudioContentPart: Hashable {
     }
 }
 
-public enum OpenAIContentPart: Hashable {
+public enum OpenAIContentPart: Hashable, Codable {
     case text(OpenAITextContentPart)
     case image(OpenAIImageContentPart)
     case audio(OpenAIAudioContentPart)
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case text
+        case imageUrl
+        case inputAudio
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(OpenAIContentType.self, forKey: .type)
+        switch type {
+        case .text:
+            let text = try container.decode(OpenAITextContentPart.self, forKey: .text)
+            self = .text(text)
+        case .image:
+            let imageUrl = try container.decode(OpenAIImageContentPart.self, forKey: .imageUrl)
+            self = .image(imageUrl)
+        case .audio:
+            let inputAudio = try container.decode(OpenAIAudioContentPart.self, forKey: .inputAudio)
+            self = .audio(inputAudio)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let text):
+            try container.encode(OpenAIContentType.text, forKey: .type)
+            try container.encode(text, forKey: .text)
+        case .image(let image):
+            try container.encode(OpenAIContentType.image, forKey: .type)
+            try container.encode(image, forKey: .imageUrl)
+        case .audio(let audio):
+            try container.encode(OpenAIContentType.audio, forKey: .type)
+            try container.encode(audio, forKey: .inputAudio)
+        }
+    }
 }
 
-public enum OpenAIContent: Hashable {
+public enum OpenAIContent: Hashable, Codable {
     case text(String)
     case contentParts([OpenAIContentPart])
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let text = try? container.decode(String.self) {
+            self = .text(text)
+        } else {
+            let parts = try container.decode([OpenAIContentPart].self)
+            self = .contentParts(parts)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .text(let text):
+            try container.encode(text)
+        case .contentParts(let parts):
+            try container.encode(parts)
+        }
+    }
 }
 
-public struct OpenAIToolCall: Hashable {
-    public struct Function: Hashable {
+public struct OpenAIToolCall: Hashable, Codable {
+    public struct Function: Hashable, Codable {
         public let name: String
         public let arguments: String
 
@@ -106,8 +164,8 @@ public struct OpenAIToolCall: Hashable {
     }
 }
 
-public struct OpenAIUserMessage: Hashable {
-    public let role: OpenAIRole = .user
+public struct OpenAIUserMessage: Hashable, Codable {
+    public var role: OpenAIRole = .user
     public var content: String
     public var createdAt: Date
 
@@ -117,8 +175,8 @@ public struct OpenAIUserMessage: Hashable {
     }
 }
 
-public struct OpenAIAssistantMessage: Hashable {
-    public struct Audio: Hashable {
+public struct OpenAIAssistantMessage: Hashable, Codable {
+    public struct Audio: Hashable, Codable {
         public let id: String
         public let data: String
         public let transcript: String
@@ -130,7 +188,14 @@ public struct OpenAIAssistantMessage: Hashable {
         }
     }
 
-    public let role: OpenAIRole = .assistant
+    private enum CodingKeys: String, CodingKey {
+        case role
+        case content
+        case toolCalls = "tool_calls"
+        case audio
+    }
+
+    public var role: OpenAIRole = .assistant
     public let content: String
     public let toolCalls: [OpenAIToolCall]
     public let audio: Audio?
@@ -151,8 +216,8 @@ public struct OpenAIAssistantMessage: Hashable {
     }
 }
 
-public struct OpenAISystemMessage: Hashable {
-    public let role: OpenAIRole = .system
+public struct OpenAISystemMessage: Hashable, Codable {
+    public var role: OpenAIRole = .system
     public let content: String
 
     public init(content: String) {
@@ -160,8 +225,8 @@ public struct OpenAISystemMessage: Hashable {
     }
 }
 
-public struct OpenAIToolMessage: Hashable {
-    public let role: OpenAIRole = .tool
+public struct OpenAIToolMessage: Hashable, Codable {
+    public var role: OpenAIRole = .tool
     public let content: String
     public let toolCallId: String
 
@@ -171,9 +236,71 @@ public struct OpenAIToolMessage: Hashable {
     }
 }
 
-public enum OpenAIMessage: Hashable {
+public enum OpenAIMessage: Hashable, Codable {
     case user(OpenAIUserMessage)
     case assistant(OpenAIAssistantMessage)
     case system(OpenAISystemMessage)
     case tool(OpenAIToolMessage)
+
+    private enum CodingKeys: String, CodingKey {
+        case role
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let role = try container.decode(OpenAIRole.self, forKey: .role)
+        switch role {
+        case .user:
+            let message = try OpenAIUserMessage(from: decoder)
+            self = .user(message)
+        case .assistant:
+            let message = try OpenAIAssistantMessage(from: decoder)
+            self = .assistant(message)
+        case .system:
+            let message = try OpenAISystemMessage(from: decoder)
+            self = .system(message)
+        case .tool:
+            let message = try OpenAIToolMessage(from: decoder)
+            self = .tool(message)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .user(let message):
+            try message.encode(to: encoder)
+        case .assistant(let message):
+            try message.encode(to: encoder)
+        case .system(let message):
+            try message.encode(to: encoder)
+        case .tool(let message):
+            try message.encode(to: encoder)
+        }
+    }
+
+    public var role: OpenAIRole {
+        switch self {
+        case .user(let message):
+            return message.role
+        case .assistant(let message):
+            return message.role
+        case .system(let message):
+            return message.role
+        case .tool(let message):
+            return message.role
+        }
+    }
+
+    public var content: String {
+        switch self {
+        case .user(let message):
+            return message.content
+        case .assistant(let message):
+            return message.content
+        case .system(let message):
+            return message.content
+        case .tool(let message):
+            return message.content
+        }
+    }
 }

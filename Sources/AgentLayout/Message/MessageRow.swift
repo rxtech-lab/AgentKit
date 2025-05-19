@@ -12,11 +12,13 @@ typealias OnDelete = (() -> Void)?
 typealias OnEdit = ((_ newContent: String) -> Void)?
 
 struct MessageRow: View {
+    let id: String
     let message: Message
     let onDelete: OnDelete
     let onEdit: OnEdit
 
-    init(message: Message, onDelete: OnDelete = nil, onEdit: OnEdit = nil) {
+    init(id: String, message: Message, onDelete: OnDelete = nil, onEdit: OnEdit = nil) {
+        self.id = id
         self.message = message
         self.onDelete = onDelete
         self.onEdit = onEdit
@@ -26,6 +28,7 @@ struct MessageRow: View {
         switch message {
         case .openai(let openAIMessage):
             OpenAIMessageRow(
+                id: id,
                 message: openAIMessage,
                 onDelete: onDelete,
                 onEdit: onEdit
@@ -34,7 +37,6 @@ struct MessageRow: View {
     }
 }
 
-
 #Preview {
-    MessageRow(message: .openai(.init(role: .assistant, content: "Hello")), onDelete: nil, onEdit: nil)
+    // MessageRow(message: .openai(.init(role: .assistant, content: "Hello")), onDelete: nil, onEdit: nil)
 }

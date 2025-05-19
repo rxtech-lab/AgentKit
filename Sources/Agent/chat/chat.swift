@@ -24,7 +24,7 @@ public enum Message: Identifiable, Hashable {
     public var id: String {
         switch self {
         case .openai(let openAIMessage):
-            return openAIMessage.id
+            return String(openAIMessage.hashValue)
         }
     }
 }
