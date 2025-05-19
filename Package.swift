@@ -17,7 +17,8 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/siteline/swiftui-introspect", from: "1.0.0")
+        .package(url: "https://github.com/siteline/swiftui-introspect", from: "1.0.0"),
+        .package(url: "https://github.com/markiv/SwiftUI-Shimmer", from: "1.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -27,6 +28,7 @@ let package = Package(
             dependencies: [
                 "Agent",
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
+                .product(name: "Shimmer", package: "SwiftUI-Shimmer"),
             ]
         ),
         .target(

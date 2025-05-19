@@ -9,7 +9,9 @@ import SwiftUI
 
 struct OpenAIMessageRow: View {
     let id: String
-    var message: OpenAIMessage
+    let message: OpenAIMessage
+    let messages: [OpenAIMessage]
+    let status: ChatStatus
     @State private var isHovering = false
     @State private var isEditing = false
     @State private var editedContent: String = ""
@@ -25,11 +27,17 @@ struct OpenAIMessageRow: View {
         return message.role
     }
 
-    public init(id: String, message: OpenAIMessage, onDelete: OnDelete = nil, onEdit: OnEdit = nil) {
+    public init(
+        id: String, message: OpenAIMessage, messages: [OpenAIMessage] = [],
+        status: ChatStatus = .idle,
+        onDelete: OnDelete = nil, onEdit: OnEdit = nil
+    ) {
         self.id = id
         self.message = message
+        self.status = status
         self.onDelete = onDelete
         self.onEdit = onEdit
+        self.messages = messages
     }
 
     var body: some View {
@@ -143,8 +151,19 @@ struct OpenAIMessageRow: View {
 #Preview {
     Group {
         OpenAIMessageRow(id: "1", message: .user(.init(content: "Hello world")))
-        OpenAIMessageRow(id: "1", message: .assistant(.init(content: "How can I help you?", toolCalls: [], audio: nil)))
-        OpenAIMessageRow(id: "1", message: .assistant(.init(content: "How can I help you?", toolCalls: [.init(id: "tool1", type: .function, function: .init(name: "GetWeather", arguments: ""))], audio: nil)))
+        OpenAIMessageRow(
+            id: "1",
+            message: .assistant(.init(content: "How can I help you?", toolCalls: [], audio: nil)))
+        OpenAIMessageRow(
+            id: "1",
+            message: .assistant(
+                .init(
+                    content: "How can I help you?",
+                    toolCalls: [
+                        .init(
+                            id: "tool1", type: .function,
+                            function: .init(name: "GetWeather", arguments: ""))
+                    ], audio: nil)))
         OpenAIMessageRow(id: "1", message: .tool(.init(content: "", toolCallId: "tool1")))
     }
     .padding()
