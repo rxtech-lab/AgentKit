@@ -14,16 +14,15 @@ let package = Package(
         .library(
             name: "AgentKit",
             targets: ["AgentLayout", "Agent"]
-        )
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/siteline/swiftui-introspect", from: "1.0.0"),
         .package(url: "https://github.com/markiv/SwiftUI-Shimmer", from: "1.0.0"),
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
         .package(url: "https://github.com/JohnSundell/Splash", exact: "0.16.0"),
-        .package(url: "https://github.com/swhitty/KeyValueCoder", from: "0.7.0"),
         .package(url: "https://github.com/sirily11/swift-json-schema", branch: "main"),
-        .package(url: "https://github.com/Alamofire/Alamofire", from: "5.0.0"),
+        .package(url: "https://github.com/vapor/vapor", from: "4.115.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -41,9 +40,7 @@ let package = Package(
         .target(
             name: "Agent",
             dependencies: [
-                .product(name: "KeyValueCoder", package: "KeyValueCoder"),
                 .product(name: "JSONSchema", package: "swift-json-schema"),
-                .product(name: "Alamofire", package: "Alamofire"),
             ]
         ),
         .testTarget(
@@ -53,7 +50,9 @@ let package = Package(
         .testTarget(
             name: "AgentTests",
             dependencies: [
-                "Agent"
+                "Agent",
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "XCTVapor", package: "vapor"),
             ]
         ),
     ]
