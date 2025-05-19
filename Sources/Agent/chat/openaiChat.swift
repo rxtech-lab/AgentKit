@@ -189,18 +189,21 @@ public struct OpenAIAssistantMessage: Hashable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case id
         case role
         case content
         case toolCalls = "tool_calls"
         case audio
     }
 
+    public let id: String?
     public var role: OpenAIRole = .assistant
     public let content: String
     public let toolCalls: [OpenAIToolCall]
     public let audio: Audio?
 
-    public init(content: String, toolCalls: [OpenAIToolCall], audio: Audio?) {
+    public init(id: String? = nil, content: String, toolCalls: [OpenAIToolCall], audio: Audio?) {
+        self.id = id
         self.content = content
         self.toolCalls = toolCalls
         self.audio = audio
@@ -209,6 +212,7 @@ public struct OpenAIAssistantMessage: Hashable, Codable {
     /// Convert the response assistant message to request message. Will drop the audio.
     public func toRequestAssistantMessage() -> OpenAIAssistantMessage {
         return OpenAIAssistantMessage(
+            id: id,
             content: content,
             toolCalls: toolCalls,
             audio: nil

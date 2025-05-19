@@ -4,7 +4,7 @@ import XCTest
 
 class ParseOpenAIMessageTests: XCTestCase {
 
-    func testParseOpenAIMessage() {
+    func testParseOpenAIAssistantMessage() {
         let data = """
             {
                 "role": "assistant",
@@ -43,6 +43,22 @@ class ParseOpenAIMessageTests: XCTestCase {
             XCTAssertEqual(assistantMessage.toolCalls[0].function.arguments, "string")
         } else {
             XCTFail("Message is not an assistant message")
+        }
+    }
+
+    func testParseOpenAISystemMessage() {
+        let data = """
+            {
+                "role": "system",
+                "content": "string"
+            }
+            """
+
+        let message = try! JSONDecoder().decode(OpenAIMessage.self, from: data.data(using: .utf8)!)
+        if case .system(let systemMessage) = message {
+            XCTAssertEqual(systemMessage.content, "string")
+        } else {
+            XCTFail("Message is not a system message")
         }
     }
 }
