@@ -38,5 +38,8 @@ struct MessageRow: View {
 }
 
 #Preview {
-    // MessageRow(message: .openai(.init(role: .assistant, content: "Hello")), onDelete: nil, onEdit: nil)
+    Group {
+        MessageRow(id: "1", message: .openai(.user(.init(content: "Hi"))))
+    }
+    .padding()
 }

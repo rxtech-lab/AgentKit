@@ -143,6 +143,10 @@ public enum OpenAIContent: Hashable, Codable {
 }
 
 public struct OpenAIToolCall: Hashable, Codable {
+    public enum ToolType: String, Codable {
+        case function
+    }
+
     public struct Function: Hashable, Codable {
         public let name: String
         public let arguments: String
@@ -154,10 +158,10 @@ public struct OpenAIToolCall: Hashable, Codable {
     }
 
     public let id: String
-    public let type: String
+    public let type: ToolType
     public let function: Function
 
-    public init(id: String, type: String, function: Function) {
+    public init(id: String, type: ToolType, function: Function) {
         self.id = id
         self.type = type
         self.function = function
@@ -169,7 +173,7 @@ public struct OpenAIUserMessage: Hashable, Codable {
     public var content: String
     public var createdAt: Date
 
-    public init(content: String, createdAt: Date) {
+    public init(content: String, createdAt: Date = Date()) {
         self.content = content
         self.createdAt = createdAt
     }

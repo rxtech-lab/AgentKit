@@ -25,6 +25,13 @@ struct OpenAIMessageRow: View {
         return message.role
     }
 
+    public init(id: String, message: OpenAIMessage, onDelete: OnDelete = nil, onEdit: OnEdit = nil) {
+        self.id = id
+        self.message = message
+        self.onDelete = onDelete
+        self.onEdit = onEdit
+    }
+
     var body: some View {
         let markdown = LocalizedStringKey(content)
         VStack(alignment: role == .user ? .trailing : .leading) {
@@ -135,10 +142,10 @@ struct OpenAIMessageRow: View {
 
 #Preview {
     Group {
-        // OpenAIMessageRow(message: .init(role: .user, content: "Hello world"))
-        // OpenAIMessageRow(message: .init(role: .assistant, content: "Hello world"))
-
-        // OpenAIMessageRow(message: .init(role: .tool, content: "Hello world"))
+        OpenAIMessageRow(id: "1", message: .user(.init(content: "Hello world")))
+        OpenAIMessageRow(id: "1", message: .assistant(.init(content: "How can I help you?", toolCalls: [], audio: nil)))
+        OpenAIMessageRow(id: "1", message: .assistant(.init(content: "How can I help you?", toolCalls: [.init(id: "tool1", type: .function, function: .init(name: "GetWeather", arguments: ""))], audio: nil)))
+        OpenAIMessageRow(id: "1", message: .tool(.init(content: "", toolCallId: "tool1")))
     }
     .padding()
 }
