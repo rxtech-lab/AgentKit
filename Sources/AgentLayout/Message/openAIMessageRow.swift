@@ -5,7 +5,9 @@
 //  Created by Qiwei Li on 5/19/25.
 //
 import Agent
+import MarkdownUI
 import Shimmer
+import Splash
 import SwiftUI
 
 struct OpenAIMessageRow: View {
@@ -56,7 +58,6 @@ struct OpenAIMessageRow: View {
     }
 
     var body: some View {
-        let markdown = LocalizedStringKey(content)
         VStack(alignment: role == .user ? .trailing : .leading) {
             HStack(alignment: .top) {
                 if role == .user {
@@ -69,7 +70,13 @@ struct OpenAIMessageRow: View {
                             .textEditorStyle(.plain)
                             .frame(maxWidth: 280, minHeight: 80, alignment: .trailing)
                     } else {
-                        Text(markdown)
+                        Markdown(content)
+                            .markdownTheme(.chatTheme)
+                            .markdownCodeSyntaxHighlighter(
+                                SplashCodeSyntaxHighlighter(
+                                    theme: .wwdc18(withFont: .init(size: 14)))
+                            )
+                            .textSelection(.enabled)
                             .padding(12)
                             .background(Color.gray.opacity(0.18))
                             .foregroundColor(.primary)
@@ -77,7 +84,12 @@ struct OpenAIMessageRow: View {
                             .frame(maxWidth: 280, alignment: .trailing)
                     }
                 } else {
-                    Text(markdown)
+                    Markdown(content)
+                        .markdownTheme(.chatTheme)
+                        .markdownCodeSyntaxHighlighter(
+                            SplashCodeSyntaxHighlighter(theme: .wwdc18(withFont: .init(size: 14)))
+                        )
+                        .textSelection(.enabled)
                         .padding(.horizontal, 12)
                         .padding(.top, 10)
                         .foregroundColor(.primary)
@@ -203,10 +215,11 @@ struct OpenAIMessageRow: View {
             ]
         )
         OpenAIMessageRow(
-            id: "2",
+            id: "1",
             message: .assistant(
                 .init(
-                    content: "I'm checking the weather for you.",
+                    content:
+                        "I'm checking the weather for you.\n```swift\nlet weather = getWeather(location: \"Los Angeles\")\nprint(weather)\n```",
                     toolCalls: [
                         .init(
                             id: "tool2", type: .function,
