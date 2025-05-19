@@ -32,7 +32,7 @@ enum OpenAIError: LocalizedError {
 class OpenAIClient {
     private let apiKey: String
     private let baseURL: URL
-    var history: [Message] = []
+    var history: [OpenAIMessage] = []
 
     init(baseURL: URL, apiKey: String) {
         self.apiKey = apiKey
@@ -40,7 +40,9 @@ class OpenAIClient {
     }
 
     @MainActor
-    func generateStreamResponse(systemText: String, prompt: String, model: OpenAICompatibleModel)
+    func generateStreamResponse(
+        systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel
+    )
         -> AsyncThrowingStream<Message, Error>
     {
         AsyncThrowingStream { continuation in
@@ -56,13 +58,14 @@ class OpenAIClient {
                     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
                     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-                    var messages: [[String: Any]] = []
-                    messages.append(["role": "system", "content": systemText])
-                    //                    messages.append(contentsOf: history.map { ["role": $0.role.rawValue, "content": $0.content] })
-                    messages.append(["role": "user", "content": prompt])
+                    var messages: [OpenAIMessage] = []
+                    messages.append(.system(.init(content: systemText)))
+
+                    messages.append(contentsOf: history)
+                    messages.append(.user(message))
 
                     let requestBody: [String: Any] = [
-                        //                        "model": model.rawValue,
+                        "model": model.id,
                         "messages": messages,
                         "stream": true,
                     ]
