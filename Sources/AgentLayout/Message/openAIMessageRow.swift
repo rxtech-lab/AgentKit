@@ -22,7 +22,7 @@ struct OpenAIMessageRow: View {
     var onEdit: OnEdit = nil
 
     // Computed properties to access message data
-    private var content: String {
+    private var content: String? {
         return message.content
     }
 
@@ -32,14 +32,14 @@ struct OpenAIMessageRow: View {
 
     private var hasToolCalls: Bool {
         if case .assistant(let assistantMessage) = message {
-            return !assistantMessage.toolCalls.isEmpty
+            return assistantMessage.toolCalls != nil && !assistantMessage.toolCalls!.isEmpty
         }
         return false
     }
 
     private var toolCalls: [OpenAIToolCall] {
         if case .assistant(let assistantMessage) = message {
-            return assistantMessage.toolCalls
+            return assistantMessage.toolCalls ?? []
         }
         return []
     }
@@ -70,6 +70,23 @@ struct OpenAIMessageRow: View {
                             .textEditorStyle(.plain)
                             .frame(maxWidth: 280, minHeight: 80, alignment: .trailing)
                     } else {
+                        if let content = content {
+                            Markdown(content)
+                                .markdownTheme(.chatTheme)
+                                .markdownCodeSyntaxHighlighter(
+                                    SplashCodeSyntaxHighlighter(
+                                        theme: .wwdc18(withFont: .init(size: 14)))
+                                )
+                                .textSelection(.enabled)
+                                .padding(12)
+                                .background(Color.gray.opacity(0.18))
+                                .foregroundColor(.primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .frame(maxWidth: 280, alignment: .trailing)
+                        }
+                    }
+                } else {
+                    if let content = content {
                         Markdown(content)
                             .markdownTheme(.chatTheme)
                             .markdownCodeSyntaxHighlighter(
@@ -77,22 +94,10 @@ struct OpenAIMessageRow: View {
                                     theme: .wwdc18(withFont: .init(size: 14)))
                             )
                             .textSelection(.enabled)
-                            .padding(12)
-                            .background(Color.gray.opacity(0.18))
+                            .padding(.horizontal, 12)
+                            .padding(.top, 10)
                             .foregroundColor(.primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .frame(maxWidth: 280, alignment: .trailing)
                     }
-                } else {
-                    Markdown(content)
-                        .markdownTheme(.chatTheme)
-                        .markdownCodeSyntaxHighlighter(
-                            SplashCodeSyntaxHighlighter(theme: .wwdc18(withFont: .init(size: 14)))
-                        )
-                        .textSelection(.enabled)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 10)
-                        .foregroundColor(.primary)
                     Spacer()
                 }
             }
@@ -138,7 +143,7 @@ struct OpenAIMessageRow: View {
                         .padding(.trailing, 8)
                     } else {
                         Button(action: {
-                            editedContent = content
+                            editedContent = content ?? ""
                             isEditing = true
                         }) {
                             Image(systemName: "pencil")
@@ -153,8 +158,10 @@ struct OpenAIMessageRow: View {
                         #if canImport(UIKit)
                             UIPasteboard.general.string = content
                         #elseif canImport(AppKit)
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(content, forType: .string)
+                            if let content = content {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(content, forType: .string)
+                            }
                         #endif
                     }) {
                         Image(systemName: "doc.on.doc")

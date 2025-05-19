@@ -1,0 +1,55 @@
+name: Swift Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build and Test with Xcode
+        run: swift test --enable-code-coverage
+
+      - name: Generate Coverage Report
+        run: |
+          # Find all test executables
+          TEST_EXECUTABLES=$(find .build/debug -name "*.xctest" -type d)
+
+          # Create lcov files for each test bundle
+          for test_executable in $TEST_EXECUTABLES; do
+            bundle_name=$(basename "$test_executable" .xctest)
+            echo "Processing coverage for $bundle_name"
+            
+            # Find profile data
+            PROFDATA_PATH=$(find .build/debug/codecov -name "*.profdata" | head -n 1)
+            
+            if [ -n "$PROFDATA_PATH" ]; then
+              # Export coverage data
+              xcrun llvm-cov export -format="lcov" \
+                "$test_executable/Contents/MacOS/$bundle_name" \
+                -instr-profile "$PROFDATA_PATH" \
+                -ignore-filename-regex="\.build|Tests" > "$bundle_name.lcov"
+            fi
+          done
+
+          # List generated lcov files
+          ls -la *.lcov || echo "No lcov files generated"
+
+      - name: Upload coverage to Codecov
+        if: success()
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./*.lcov
+          fail_ci_if_error: false

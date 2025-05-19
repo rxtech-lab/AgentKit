@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentLayout",
+    name: "AgentKit",
     platforms: [
         .macOS(.v15),
         .iOS(.v18),
@@ -12,7 +12,7 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "AgentLayout",
+            name: "AgentKit",
             targets: ["AgentLayout", "Agent"]
         )
     ],
@@ -22,6 +22,7 @@ let package = Package(
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
         .package(url: "https://github.com/JohnSundell/Splash", exact: "0.16.0"),
         .package(url: "https://github.com/swhitty/KeyValueCoder", from: "0.7.0"),
+        .package(url: "https://github.com/vapor/vapor", from: "4.115.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -46,7 +47,11 @@ let package = Package(
         ),
         .testTarget(
             name: "AgentTests",
-            dependencies: ["Agent"]
+            dependencies: [
+                "Agent",
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "XCTVapor", package: "vapor"),
+            ]
         ),
     ]
 )
