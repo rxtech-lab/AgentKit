@@ -1,5 +1,5 @@
 {
-  "originHash" : "07044fb14e5fa1338271f89d04ca97115a0f4af571592d4aec9838e24da079bd",
+  "originHash" : "20909d4773853dcbfe7cbd06c11c3060a8efc03071e34050dce81c539b55d336",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -26,15 +26,6 @@
       "state" : {
         "revision" : "742f624a998cba2a9e653d9b1e91ad3f3a5dff6b",
         "version" : "4.15.2"
-      }
-    },
-    {
-      "identity" : "keyvaluecoder",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swhitty/KeyValueCoder",
-      "state" : {
-        "revision" : "b6757897de7d616fd614158f37fd2b178578caf0",
-        "version" : "0.7.0"
       }
     },
     {
@@ -170,6 +161,15 @@
       "state" : {
         "revision" : "a0a57e949a8903563aba4615869310c0ebf14c03",
         "version" : "1.4.0"
+      }
+    },
+    {
+      "identity" : "swift-json-schema",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sirily11/swift-json-schema",
+      "state" : {
+        "branch" : "main",
+        "revision" : "7128c1044e1e32f57ad0bb0c43201c7d854ceb87"
       }
     },
     {

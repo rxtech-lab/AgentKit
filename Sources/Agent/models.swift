@@ -5,14 +5,14 @@ public enum ApiType: String {
 }
 
 /// Represents the architecture of an AI model, including its input/output modalities and tokenizer.
-public struct Architecture: Hashable {
+public struct Architecture: Sendable, Hashable {
     public let inputModalities: [String]
     public let outputModalities: [String]
     public let tokenizer: String
 }
 
 /// Represents the pricing structure for using an AI model.
-public struct Pricing: Hashable {
+public struct Pricing: Sendable, Hashable {
     /// Cost per token for prompts
     public let prompt: Double
     /// Cost per token for completions
@@ -34,7 +34,7 @@ public struct Pricing: Hashable {
 /// A model that implements the OpenAI model interface with additional OpenRouter-specific fields.
 /// While maintaining compatibility with OpenAI's interface, this model includes extra properties
 /// defined by OpenRouter to support additional functionality and metadata.
-public struct OpenAICompatibleModel: Identifiable, Hashable {
+public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
     // OpenAI compatible fields
     /// The ID of the model, used in completion requests
     public let id: String

@@ -1,6 +1,6 @@
 //
-//  OpenAIChatController.swift
-//  AgentLayout
+//  openAIChatController.swift
+//  AgentKit
 //
 //  Created by Qiwei Li on 5/19/25.
 //
@@ -22,7 +22,7 @@ class OpenAIChatController {
     /// Set mock responses to be returned in the streaming API
     /// - Parameter responses: List of assistant messages to be returned as chunks
     func mockChatResponse(_ responses: [OpenAIAssistantMessage]) {
-        self.mockResponses = responses
+        mockResponses = responses
     }
 
     /// Register routes for this controller on a Vapor router
@@ -51,8 +51,12 @@ class OpenAIChatController {
                             )
                         ]
                     )
-                    _ = writer.write(.buffer(ByteBuffer(string: "data: \(chunk)")))
+                    let jsonData = try JSONEncoder().encode(chunk)
+                    let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
+                    _ = writer.write(.buffer(ByteBuffer(string: "data: \(jsonString)")))
                 }
+
+                _ = writer.write(.end)
             }
         })
 
@@ -62,38 +66,4 @@ class OpenAIChatController {
         response.headers.replaceOrAdd(name: .connection, value: "keep-alive")
         return response
     }
-
-}
-
-// MARK: - Response Models
-
-/// The streaming response chunk format for OpenAI API
-private struct StreamChunk: Codable {
-    let id: String
-    let created: Int
-    let model: String
-    let choices: [StreamChoice]
-}
-
-/// A single choice in a streaming response
-private struct StreamChoice: Codable {
-    let index: Int
-    let delta: OpenAIAssistantMessage
-    let finishReason: String?
-}
-
-/// The non-streaming response format for OpenAI API
-private struct CompletionResponse: Codable {
-    let id: String
-    let object: String
-    let created: Int
-    let model: String
-    let choices: [Choice]
-}
-
-/// A single choice in a non-streaming response
-private struct Choice: Codable {
-    let index: Int
-    let message: OpenAIAssistantMessage
-    let finishReason: String
 }
