@@ -53,7 +53,7 @@ struct OpenAIToolMessageRow: View {
                         } icon: {
                             Image(systemName: "checkmark.circle.fill")
                         }
-                        .foregroundColor(.green)
+                        .foregroundColor(.orange.mix(with: .mint, by: 0.9))
                     } else if status == .loading {
                         Label {
                             Text("Calling tool: \(toolCall.function.name)")
@@ -85,8 +85,7 @@ struct OpenAIToolMessageRow: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        Text(toolCall.function.arguments)
-                            .font(.system(.body, design: .monospaced))
+                        JSONSyntaxView(jsonString: toolCall.function.arguments)
                             .padding(8)
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(8)
@@ -100,8 +99,7 @@ struct OpenAIToolMessageRow: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
-                            Text(toolResponse.content)
-                                .font(.system(.body, design: .monospaced))
+                            JSONSyntaxView(jsonString: toolResponse.content)
                                 .padding(8)
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
@@ -178,4 +176,24 @@ struct OpenAIToolMessageRow: View {
         }
         .padding()
     }
+}
+
+#Preview("JSON Syntax View") {
+    VStack(spacing: 16) {
+        JSONSyntaxView(
+            jsonString:
+            "{\"name\": \"John\", \"age\": 30, \"isAdmin\": true, \"roles\": [\"user\", \"editor\"], \"settings\": null}"
+        )
+        .frame(height: 200)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+
+        JSONSyntaxView(jsonString: "{\"invalid json")
+            .frame(height: 50)
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+    }
+    .padding()
 }

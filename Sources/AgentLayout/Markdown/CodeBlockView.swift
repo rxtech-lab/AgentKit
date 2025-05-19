@@ -9,8 +9,6 @@ import MarkdownUI
 import SwiftUI
 
 struct CodeBlockView: View {
-    @State var copied: Bool = false
-
     let configuration: CodeBlockConfiguration
 
     var body: some View {
@@ -29,19 +27,8 @@ struct CodeBlockView: View {
             VStack {
                 HStack {
                     Spacer()
-                    Button(action: {
-                        Task {
-                            await onCopied()
-                        }
-                    }, label: {
-                        if copied {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.green)
-                        } else {
-                            Image(systemName: "doc.on.doc.fill")
-                        }
-                    })
-                    .padding([.top, .trailing], 5.0)
+                    CopyButton(content: configuration.content)
+                        .padding([.top, .trailing], 5.0)
                 }
                 Spacer()
             }
@@ -49,17 +36,5 @@ struct CodeBlockView: View {
         .background(Color.secondaryBackground)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .markdownMargin(top: 0, bottom: 16)
-    }
-
-    func onCopied() async {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(configuration.content, forType: .string)
-        copied = true
-        // Wait 1.5 secs
-        try? await Task.sleep(for: .seconds(1.5))
-        withAnimation {
-            copied = false
-        }
     }
 }
