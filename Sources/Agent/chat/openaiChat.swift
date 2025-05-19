@@ -1,4 +1,5 @@
 import Foundation
+import JSONSchema
 
 public enum OpenAIRole: String, Codable, Sendable {
     case user
@@ -165,6 +166,20 @@ public struct OpenAIToolCall: Hashable, Codable, Sendable {
         self.id = id
         self.type = type
         self.function = function
+    }
+}
+
+public struct OpenAITool: Codable, Sendable {
+    public var name: String
+    public var description: String
+    public var parameters: JSONSchema
+    public var strict: Bool
+    
+    public init(name: String, description: String, parameters: JSONSchema, strict: Bool = false) {
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+        self.strict = strict
     }
 }
 

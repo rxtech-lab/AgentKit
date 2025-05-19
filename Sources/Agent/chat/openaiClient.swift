@@ -41,7 +41,8 @@ class OpenAIClient {
 
     @MainActor
     func generateStreamResponse(
-        systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel
+        systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel,
+        tools: [OpenAITool] = []
     )
         -> AsyncThrowingStream<Message, Error>
     {
@@ -68,6 +69,12 @@ class OpenAIClient {
                         "model": model.id,
                         "messages": messages,
                         "stream": true,
+                        "tools": tools.map { tool in
+                            [
+                                "type": "function",
+                                "function": tool
+                            ]
+                        }
                     ]
 
                     request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -75,7 +82,7 @@ class OpenAIClient {
                     let (responseStream, response) = try await URLSession.shared.bytes(for: request)
 
                     guard let httpResponse = response as? HTTPURLResponse,
-                        (200...299).contains(httpResponse.statusCode)
+                          (200 ... 299).contains(httpResponse.statusCode)
                     else {
                         let textResponse = response.description
                         throw OpenAIError.invalidResponse(url: url, textResponse: textResponse)
@@ -85,15 +92,15 @@ class OpenAIClient {
                     var totalToolCalls: [OpenAIToolCall] = []
                     for try await line in responseStream.lines {
                         if line.hasPrefix("data: "),
-                            let data = line.dropFirst(6).data(using: .utf8),
-                            let json = try? JSONSerialization.jsonObject(with: data)
-                                as? [String: Any],
-                            let choices = json["choices"] as? [[String: Any]],
-                            let delta = choices.first?["delta"] as? [String: Any]
+                           let data = line.dropFirst(6).data(using: .utf8),
+                           let json = try? JSONSerialization.jsonObject(with: data)
+                           as? [String: Any],
+                           let choices = json["choices"] as? [[String: Any]],
+                           let delta = choices.first?["delta"] as? [String: Any]
                         {
-
                             let decoded = try KeyValueDecoder().decode(
-                                OpenAIAssistantMessage.self, from: delta)
+                                OpenAIAssistantMessage.self, from: delta
+                            )
                             if let content = decoded.content {
                                 total += content
                                 continuation.yield(

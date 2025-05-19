@@ -7,7 +7,7 @@ let package = Package(
     name: "AgentKit",
     platforms: [
         .macOS(.v15),
-        .iOS(.v18),
+        .iOS(.v18)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -22,7 +22,7 @@ let package = Package(
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
         .package(url: "https://github.com/JohnSundell/Splash", exact: "0.16.0"),
         .package(url: "https://github.com/swhitty/KeyValueCoder", from: "0.7.0"),
-        .package(url: "https://github.com/vapor/vapor", from: "4.115.0"),
+        .package(url: "https://github.com/sirily11/swift-json-schema", branch: "main")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -34,12 +34,15 @@ let package = Package(
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
                 .product(name: "Shimmer", package: "SwiftUI-Shimmer"),
                 .product(name: "MarkdownUI", package: "swift-markdown-ui"),
-                .product(name: "Splash", package: "Splash"),
-                .product(name: "KeyValueCoder", package: "KeyValueCoder"),
+                .product(name: "Splash", package: "Splash")
             ]
         ),
         .target(
-            name: "Agent"
+            name: "Agent",
+            dependencies: [
+                .product(name: "KeyValueCoder", package: "KeyValueCoder"),
+                .product(name: "JSONSchema", package: "swift-json-schema")
+            ]
         ),
         .testTarget(
             name: "AgentLayoutTests",
@@ -48,10 +51,8 @@ let package = Package(
         .testTarget(
             name: "AgentTests",
             dependencies: [
-                "Agent",
-                .product(name: "Vapor", package: "vapor"),
-                .product(name: "XCTVapor", package: "vapor"),
+                "Agent"
             ]
-        ),
+        )
     ]
 )

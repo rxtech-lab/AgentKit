@@ -36,11 +36,11 @@ class ParseOpenAIMessageTests: XCTestCase {
         let message = try! JSONDecoder().decode(OpenAIMessage.self, from: data.data(using: .utf8)!)
         if case .assistant(let assistantMessage) = message {
             XCTAssertEqual(assistantMessage.content, "string")
-            XCTAssertEqual(assistantMessage.toolCalls.count, 1)
-            XCTAssertEqual(assistantMessage.toolCalls[0].id, "string")
-            XCTAssertEqual(assistantMessage.toolCalls[0].type, "function")
-            XCTAssertEqual(assistantMessage.toolCalls[0].function.name, "string")
-            XCTAssertEqual(assistantMessage.toolCalls[0].function.arguments, "string")
+            XCTAssertEqual(assistantMessage.toolCalls?.count, 1)
+            XCTAssertEqual(assistantMessage.toolCalls?[0].id, "string")
+            XCTAssertEqual(assistantMessage.toolCalls?[0].type, .function)
+            XCTAssertEqual(assistantMessage.toolCalls?[0].function.name, "string")
+            XCTAssertEqual(assistantMessage.toolCalls?[0].function.arguments, "string")
         } else {
             XCTFail("Message is not an assistant message")
         }
