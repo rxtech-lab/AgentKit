@@ -177,7 +177,7 @@ struct MessageInputView: View {
         ],
         onSend: {}
     )
-    .frame(height: 300)
+    .frame(height: 250)
 
     MessageInputView(
         text: $text,
@@ -194,5 +194,5 @@ struct MessageInputView: View {
         onSend: {},
         onCancel: {}
     )
-    .frame(height: 300)
+    .frame(height: 250)
 }
