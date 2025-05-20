@@ -9,10 +9,7 @@ import Agent
 import Shimmer
 import SwiftUI
 
-public enum ChatStatus {
-    case idle
-    case loading
-}
+
 
 struct OpenAIToolMessageRow: View {
     let toolCall: OpenAIToolCall

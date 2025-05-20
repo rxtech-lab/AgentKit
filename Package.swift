@@ -23,6 +23,7 @@ let package = Package(
         .package(url: "https://github.com/JohnSundell/Splash", exact: "0.16.0"),
         .package(url: "https://github.com/sirily11/swift-json-schema", branch: "main"),
         .package(url: "https://github.com/vapor/vapor", from: "4.115.0"),
+        .package(url: "https://github.com/SwiftfulThinking/SwiftfulLoadingIndicators", from: "0.0.4"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -35,6 +36,7 @@ let package = Package(
                 .product(name: "Shimmer", package: "SwiftUI-Shimmer"),
                 .product(name: "MarkdownUI", package: "swift-markdown-ui"),
                 .product(name: "Splash", package: "Splash"),
+                .product(name: "SwiftfulLoadingIndicators", package: "SwiftfulLoadingIndicators"),
             ]
         ),
         .target(

@@ -1,3 +1,5 @@
+import Foundation
+
 /// Type of the api. Used to determine which client to use.
 public enum ApiType: String {
     /// Any openai compatible api should use this type
@@ -78,15 +80,9 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
 
 public struct CustomModel: Identifiable, Hashable {
     public let id: String
-    public let endpoint: String
-    public let apiKey: String
-    public let apiType: ApiType
 
-    public init(id: String, endpoint: String, apiKey: String, apiType: ApiType) {
+    public init(id: String) {
         self.id = id
-        self.endpoint = endpoint
-        self.apiKey = apiKey
-        self.apiType = apiType
     }
 }
 
@@ -150,5 +146,27 @@ public enum Model: Identifiable, Hashable {
         case .custom(let model):
             return model.id
         }
+    }
+}
+
+public struct Source: Identifiable, Hashable {
+    public let id: String
+    public let endpoint: String
+    public let apiKey: String
+    public let apiType: ApiType
+    public var models: [Model]
+    public let displayName: String
+
+    public init(id: String = UUID().uuidString, displayName: String, endpoint: String, apiKey: String, apiType: ApiType, models: [Model] = []) {
+        self.id = id
+        self.displayName = displayName
+        self.endpoint = endpoint
+        self.apiKey = apiKey
+        self.apiType = apiType
+        self.models = models
+    }
+
+    mutating func addModel(_ model: Model) {
+        models.append(model)
     }
 }
