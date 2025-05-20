@@ -77,7 +77,7 @@ actor OpenAIClient {
         let (responseStream, response) = try await URLSession.shared.bytes(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
-              (200 ... 299).contains(httpResponse.statusCode)
+            (200...299).contains(httpResponse.statusCode)
         else {
             let textResponse = response.description
             throw OpenAIError.invalidResponse(url: endpoint, textResponse: textResponse)
@@ -90,9 +90,10 @@ actor OpenAIClient {
         systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel,
         tools: [OpenAITool] = [], history: [OpenAIMessage] = []
     )
-        -> AsyncThrowingStream<OpenAIMessage, Error>
+        -> (stream: AsyncThrowingStream<OpenAIMessage, Error>, cancellable: Cancellable)
     {
-        AsyncThrowingStream { continuation in
+        let task = Task<Void, Never> {}
+        let stream = AsyncThrowingStream<OpenAIMessage, Error> { continuation in
             Task {
                 do {
                     var messages: [OpenAIMessage] = []
@@ -112,11 +113,17 @@ actor OpenAIClient {
                     let responseStream = try await makeRequest(body: requestBody)
                     var total = ""
                     var totalToolCalls: [OpenAIToolCall] = []
+
                     for try await line in responseStream.lines {
+                        if task.isCancelled {
+                            continuation.finish()
+                            break
+                        }
+
                         if line.hasPrefix("data: "),
-                           let data = line.dropFirst(6).data(using: .utf8),
-                           let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
-                           let delta = json.choices.first?.delta
+                            let data = line.dropFirst(6).data(using: .utf8),
+                            let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
+                            let delta = json.choices.first?.delta
                         {
                             if let content = delta.content {
                                 total += content
@@ -140,5 +147,7 @@ actor OpenAIClient {
                 }
             }
         }
+
+        return (stream, Cancellable { task.cancel() })
     }
 }

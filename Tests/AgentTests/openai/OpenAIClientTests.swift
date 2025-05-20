@@ -25,7 +25,7 @@ final class OpenAIClientTests: XCTestCase {
         await controller.registerRoutes(on: app)
 
         // Find a free port for testing
-        let port = 8123 // This could be dynamic in a real implementation
+        let port = 8123  // This could be dynamic in a real implementation
         app.http.server.configuration.port = port
 
         // Start the server
@@ -51,7 +51,9 @@ final class OpenAIClientTests: XCTestCase {
             id: "mock-id",
             content: "This is a test response from the mock server.",
             toolCalls: [
-                .init(id: "tool1", type: .function, function: .init(name: "getWeather", arguments: ""))
+                .init(
+                    id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
+                )
             ],
             audio: nil)
         controller.mockChatResponse([mockResponse])
@@ -83,7 +85,7 @@ final class OpenAIClientTests: XCTestCase {
             ])
 
         // Process the stream
-        for try await message in stream {
+        for try await message in stream.stream {
             if case .assistant(let assistantMessage) = message {
                 responseCount += 1
 
@@ -101,5 +103,48 @@ final class OpenAIClientTests: XCTestCase {
         XCTAssertGreaterThan(responseCount, 1, "Should receive multiple streaming responses")
         XCTAssertEqual(receivedContent, "This is a test response from the mock server.")
         XCTAssertEqual(receivedToolCalls.count, 1, "Should receive one tool call")
+    }
+
+    @MainActor
+    func testStreamingResponseCancellation() async throws {
+        // Set up the mock response
+        let mockResponse = OpenAIAssistantMessage(
+            id: "mock-id",
+            content: "This is a test response from the mock server.",
+            toolCalls: [
+                .init(
+                    id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
+                )
+            ],
+            audio: nil)
+        controller.mockChatResponse([mockResponse])
+
+        // Create a user message for testing
+        let userMessage = OpenAIUserMessage(content: "Hello")
+
+        // Use a test model
+        let testModel = OpenAICompatibleModel(id: "test-model")
+
+        // Call the client with streaming response
+        let (stream, cancellable) = await client.generateStreamResponse(
+            systemText: "You are a helpful assistant.",
+            message: userMessage,
+            model: testModel)
+
+        // Capture only a portion of the stream
+        var receivedMessages = 0
+
+        await cancellable.cancel()
+        do {
+            for try await _ in stream {
+                receivedMessages += 1
+
+            }
+        } catch {
+            XCTFail("Stream should not throw an error when cancelled: \(error)")
+        }
+
+        // Assert that we only received the expected number of messages
+        XCTAssertEqual(receivedMessages, 0, "Should not receive any messages after cancellation")
     }
 }
