@@ -17,10 +17,13 @@ struct JSONSyntaxView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(jsonString)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundColor(.primary)
-                    .padding(4)
+                HStack {
+                    Text(jsonString)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .padding(4)
+                    Spacer()
+                }
             }
             VStack {
                 HStack {
@@ -132,6 +135,9 @@ struct JSONToken {
 
 #Preview {
     JSONSyntaxView(jsonString: "{\"key\": \"value\", \"number\": 123, \"bool\": true, \"null\": null}")
+        .padding()
+        .frame(width: 500)
+    JSONSyntaxView(jsonString: "{\"key\": ")
         .padding()
         .frame(width: 500)
 }
