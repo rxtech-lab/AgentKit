@@ -18,6 +18,11 @@ public struct Chat {
     }
 }
 
+public enum ChatStatus {
+    case idle
+    case loading
+}
+
 public enum Message: Identifiable, Hashable {
     case openai(OpenAIMessage)
 
@@ -26,26 +31,5 @@ public enum Message: Identifiable, Hashable {
         case .openai(let openAIMessage):
             return String(openAIMessage.hashValue)
         }
-    }
-}
-
-public struct GameState {
-    // Add your game state properties here
-    public init() {}
-}
-
-public protocol ChatModelProtocol {
-    func chat(history: [Message], text: String, gameState: GameState) async throws
-        -> AsyncThrowingStream<OpenAIMessage, Error>
-}
-
-public struct ChatModel: ChatModelProtocol {
-    public init() {}
-
-    public func chat(history: [Message], text: String, gameState: GameState) async throws
-        -> AsyncThrowingStream<OpenAIMessage, Error>
-    {
-        // Implement your chat logic here
-        fatalError("Not implemented")
     }
 }

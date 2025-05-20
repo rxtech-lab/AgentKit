@@ -6,6 +6,7 @@
 //
 
 import Agent
+import SwiftfulLoadingIndicators
 import SwiftUI
 import SwiftUIIntrospect
 
@@ -22,20 +23,29 @@ enum MessageInputState {
 struct MessageInputView: View {
     @Binding var text: String
     @Binding var currentModel: Model
-    let models: [Model]
+    @Binding var currentSource: Source
+    let sources: [Source]
     var onSend: () -> Void
+    let onCancel: () -> Void
+    let status: ChatStatus
 
     @State private var showModelPicker = false
 
     init(text: Binding<String>,
+         status: ChatStatus,
          currentModel: Binding<Model>,
-         models: [Model],
-         onSend: @escaping () -> Void)
+         currentSource: Binding<Source>,
+         sources: [Source],
+         onSend: @escaping () -> Void,
+         onCancel: @escaping () -> Void = {})
     {
         self._text = text
+        self.status = status
         self._currentModel = currentModel
-        self.models = models
+        self.sources = sources
         self.onSend = onSend
+        self.onCancel = onCancel
+        self._currentSource = currentSource
     }
 
     var body: some View {
@@ -73,27 +83,40 @@ struct MessageInputView: View {
                 #endif
                 .popover(isPresented: $showModelPicker) {
                     ModelPicker(
-                        currentModel: $currentModel, models: models,
-                        onClose: { showModelPicker = false })
+                        currentModel: $currentModel, currentSource: $currentSource, sources: sources,
+                        onClose: { showModelPicker = false }
+                    )
                 }
 
                 Spacer()
                 Button(action: {
-                    if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        onSend()
+                    if status == .loading {
+                        onCancel()
+                    } else {
+                        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            onSend()
+                        }
                     }
                 }) {
-                    Image(systemName: "arrow.up")
-                        .foregroundStyle(.white)
-                        .font(.system(size: 14))
-                        .fontWeight(.black)
-                        .padding(10)
+                    if status == .loading {
+                        Image(systemName: "square.fill")
+                            .foregroundStyle(.black)
+                            .font(.system(size: 14))
+                            .fontWeight(.black)
+                            .padding(10)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .foregroundStyle(.white)
+                            .font(.system(size: 14))
+                            .fontWeight(.black)
+                            .padding(10)
+                    }
                 }
                 .buttonStyle(.plain)
                 .fontWeight(.bold)
                 .tint(.black)
                 .buttonBorderShape(.circle)
-                .background(.black)
+                .background(status == .idle ? .black : .gray.opacity(0.2))
                 .cornerRadius(999)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -129,18 +152,47 @@ struct MessageInputView: View {
     long text
     """
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt-4o"))
+    @Previewable @State var currentSource: Source = .init(
+        displayName: "OpenAI",
+        endpoint: "",
+        apiKey: "",
+        apiType: .openAI,
+        models: [
+            .openAI(.init(id: "gpt-4o")),
+            .openAI(.init(id: "gpt-4")),
+        ]
+    )
 
     MessageInputView(
         text: $text,
+        status: .idle,
         currentModel: $currentModel,
-        models: [
-            .openAI(.init(id: "gpt-4o")),
-            .openAI(.init(id: "gpt-4o-mini")),
-            .custom(
-                .init(
-                    id: "gpt-4o-2024-08-06", endpoint: "https://api.openai.com/v1",
-                    apiKey: "sk-proj-1234567890", apiType: .openAI)),
+        currentSource: $currentSource,
+        sources: [
+            .init(displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+                  models: [
+                      .openAI(.init(id: "gpt-4o")),
+                      .openAI(.init(id: "gpt-4")),
+                  ]),
         ],
-        onSend: {})
-        .frame(height: 800)
+        onSend: {}
+    )
+    .frame(height: 300)
+
+    MessageInputView(
+        text: $text,
+        status: .loading,
+        currentModel: $currentModel,
+        currentSource: $currentSource,
+        sources: [
+            .init(displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+                  models: [
+                      .openAI(.init(id: "gpt-4o")),
+                      .openAI(.init(id: "gpt-4")),
+                  ]),
+        ],
+        onSend: {},
+        onCancel: {}
+    )
+    .frame(height: 300)
 }
