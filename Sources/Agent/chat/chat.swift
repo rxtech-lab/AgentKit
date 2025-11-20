@@ -25,11 +25,14 @@ public enum ChatStatus {
 
 public enum Message: Identifiable, Hashable, Sendable {
     case openai(OpenAIMessage)
+    case gemini(GeminiMessage)
 
     public var id: String {
         switch self {
         case .openai(let openAIMessage):
             return String(openAIMessage.hashValue)
+        case .gemini(let geminiMessage):
+            return String(geminiMessage.hashValue)
         }
     }
 }
