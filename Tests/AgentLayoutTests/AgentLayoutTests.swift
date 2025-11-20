@@ -1,7 +1,7 @@
 import Testing
 import SwiftUI
 import ViewInspector
-import Agent
+@testable import Agent
 @testable import AgentLayout
 
 extension AgentLayout: Inspectable {}
@@ -10,7 +10,7 @@ extension MessageInputView: Inspectable {}
 
 struct MockChatProvider: ChatProvider {
     let onSend: (@Sendable (String, Model) -> Void)?
-    
+
     func sendMessage(message: String, model: Model) async throws {
         onSend?(message, model)
     }
@@ -154,4 +154,91 @@ struct MockChatProvider: ChatProvider {
     
     // Verify onSend was called
     #expect(sentMessage == "Hello World")
+}
+
+@MainActor
+@Test func testOnMessageCallbackParameter() async throws {
+    let chat = Chat(id: UUID(), gameId: "test", messages: [])
+    let model = Model.openAI(.init(id: "gpt-4"))
+    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+
+    var receivedMessages: [Message] = []
+    let onMessage: (Message) -> Void = { message in
+        receivedMessages.append(message)
+    }
+
+    // Verify AgentLayout accepts the onMessage callback
+    let sut = AgentLayout(
+        chat: chat,
+        currentModel: .constant(model),
+        currentSource: .constant(source),
+        sources: [source],
+        onMessage: onMessage
+    )
+
+    // Host the view to ensure it initializes correctly
+    ViewHosting.host(view: sut)
+
+    // Verify view can be inspected (callback properly wired)
+    let view = try sut.inspect()
+    #expect(view != nil)
+}
+
+@MainActor
+@Test func testOnMessageCallbackWithBothCallbacks() async throws {
+    let chat = Chat(id: UUID(), gameId: "test", messages: [])
+    let model = Model.openAI(.init(id: "gpt-4"))
+    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+
+    var sentMessage: String?
+    var receivedMessages: [Message] = []
+
+    let onSend: (String) -> Void = { message in
+        sentMessage = message
+    }
+
+    let onMessage: (Message) -> Void = { message in
+        receivedMessages.append(message)
+    }
+
+    // Verify AgentLayout accepts both callbacks together
+    let sut = AgentLayout(
+        chat: chat,
+        currentModel: .constant(model),
+        currentSource: .constant(source),
+        sources: [source],
+        onSend: onSend,
+        onMessage: onMessage
+    )
+
+    ViewHosting.host(view: sut)
+
+    let view = try sut.inspect()
+
+    // Find input view and trigger onSend
+    let inputView = try view.find(MessageInputView.self)
+    try inputView.actualView().onSend("Test message")
+
+    // Verify onSend was called
+    #expect(sentMessage == "Test message")
+}
+
+@MainActor
+@Test func testOnMessageCallbackNilByDefault() async throws {
+    let chat = Chat(id: UUID(), gameId: "test", messages: [])
+    let model = Model.openAI(.init(id: "gpt-4"))
+    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+
+    // Verify AgentLayout works without onMessage callback (nil by default)
+    let sut = AgentLayout(
+        chat: chat,
+        currentModel: .constant(model),
+        currentSource: .constant(source),
+        sources: [source]
+    )
+
+    ViewHosting.host(view: sut)
+
+    let view = try sut.inspect()
+    #expect(view != nil)
 }

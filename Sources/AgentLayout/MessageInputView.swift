@@ -66,7 +66,8 @@ struct MessageInputView: View {
                         }
                         return .handled
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical)
+                    .padding(.horizontal)
             }
             Spacer(minLength: 0)
             HStack {

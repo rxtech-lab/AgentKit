@@ -38,6 +38,7 @@ public struct AgentLayout: View {
     let chatProvider: ChatProvider?
     let renderMessage: MessageRenderer?
     let onSend: ((String) -> Void)?
+    let onMessage: ((Message) -> Void)?
     let tools: [AgentTool]
 
     public init(
@@ -48,6 +49,7 @@ public struct AgentLayout: View {
         chatProvider: ChatProvider? = nil,
         renderMessage: MessageRenderer? = nil,
         onSend: ((String) -> Void)? = nil,
+        onMessage: ((Message) -> Void)? = nil,
         tools: [AgentTool] = []
     ) {
         self._chat = .init(initialValue: chat)
@@ -58,6 +60,7 @@ public struct AgentLayout: View {
         self.chatProvider = chatProvider
         self.renderMessage = renderMessage
         self.onSend = onSend
+        self.onMessage = onMessage
         self.tools = tools
     }
 
@@ -141,90 +144,95 @@ public struct AgentLayout: View {
 
                     if let onSend = onSend {
                         onSend(message)
-                    } else {
-                        // Default logic using AgentClient
-                        let userMsg = Message.openai(.user(.init(content: message)))
-                        chat.messages.append(userMsg)
+                    }
+                    // Default logic using AgentClient
+                    let userMsg = Message.openai(.user(.init(content: message)))
+                    chat.messages.append(userMsg)
 
-                        Task {
-                            status = .loading
-                            // Notify chatProvider if exists (persistence)
-                            if let chatProvider = chatProvider {
-                                try? await chatProvider.sendMessage(
-                                    message: message, model: currentModel)
-                            }
+                    Task {
+                        status = .loading
+                        // Notify chatProvider if exists (persistence)
+                        if let chatProvider = chatProvider {
+                            try? await chatProvider.sendMessage(
+                                message: message, model: currentModel
+                            )
+                        }
 
-                            do {
-                                let stream = await agentClient.process(
-                                    messages: chat.messages,
-                                    model: currentModel.id,
-                                    tools: tools,
-                                    source: currentSource
-                                )
+                        do {
+                            let stream = await agentClient.process(
+                                messages: chat.messages,
+                                model: currentModel.id,
+                                tools: tools,
+                                source: currentSource
+                            )
 
-                                var currentAssistantId = UUID().uuidString
-                                var currentAssistantContent = ""
-                                var isFirstChunk = true
+                            var currentAssistantId = UUID().uuidString
+                            var currentAssistantContent = ""
+                            var isFirstChunk = true
 
-                                for try await part in stream {
-                                    switch part {
-                                    case .textDelta(let text):
-                                        currentAssistantContent += text
-                                        if isFirstChunk {
-                                            let newMsg = Message.openai(
+                            for try await part in stream {
+                                switch part {
+                                case .textDelta(let text):
+                                    currentAssistantContent += text
+                                    if isFirstChunk {
+                                        let newMsg = Message.openai(
+                                            .assistant(
+                                                .init(
+                                                    id: currentAssistantId,
+                                                    content: currentAssistantContent,
+                                                    toolCalls: nil, audio: nil
+                                                )))
+                                        chat.messages.append(newMsg)
+                                        isFirstChunk = false
+                                    } else {
+                                        let count = chat.messages.count
+                                        if count > 0 {
+                                            chat.messages[count - 1] = Message.openai(
                                                 .assistant(
                                                     .init(
                                                         id: currentAssistantId,
                                                         content: currentAssistantContent,
-                                                        toolCalls: nil, audio: nil)))
-                                            chat.messages.append(newMsg)
-                                            isFirstChunk = false
-                                        } else {
+                                                        toolCalls: nil, audio: nil
+                                                    )))
+                                        }
+                                    }
+                                case .message(let msg):
+                                    // Determine if we are updating the last message or appending a new one
+                                    // msg is already of type Message (e.g. .openai(...))
+
+                                    if case .openai(let openAIMsg) = msg,
+                                       case .assistant = openAIMsg.role
+                                    {
+                                        if !isFirstChunk {
                                             let count = chat.messages.count
                                             if count > 0 {
-                                                chat.messages[count - 1] = Message.openai(
-                                                    .assistant(
-                                                        .init(
-                                                            id: currentAssistantId,
-                                                            content: currentAssistantContent,
-                                                            toolCalls: nil, audio: nil)))
+                                                chat.messages[count - 1] = msg
                                             }
-                                        }
-                                    case .message(let msg):
-                                        // Determine if we are updating the last message or appending a new one
-                                        // msg is already of type Message (e.g. .openai(...))
-
-                                        if case .openai(let openAIMsg) = msg,
-                                            case .assistant = openAIMsg.role
-                                        {
-                                            if !isFirstChunk {
-                                                let count = chat.messages.count
-                                                if count > 0 {
-                                                    chat.messages[count - 1] = msg
-                                                }
-                                            } else {
-                                                chat.messages.append(msg)
-                                            }
-                                            // Prepare for next turn (potentially) or finish
-                                            isFirstChunk = true
-                                            currentAssistantContent = ""
-                                            currentAssistantId = UUID().uuidString
                                         } else {
                                             chat.messages.append(msg)
                                         }
-                                    case .error(let e):
-                                        print("Agent Error: \(e)")
-                                        self.error = e
-                                        self.showAlert = true
+                                        // Prepare for next turn (potentially) or finish
+                                        isFirstChunk = true
+                                        currentAssistantContent = ""
+                                        currentAssistantId = UUID().uuidString
+                                    } else {
+                                        chat.messages.append(msg)
                                     }
+
+                                    // Invoke callback for AI replies and tool results
+                                    onMessage?(msg)
+                                case .error(let e):
+                                    print("Agent Error: \(e)")
+                                    self.error = e
+                                    self.showAlert = true
                                 }
-                                status = .idle
-                            } catch {
-                                print("Error sending message: \(error)")
-                                self.error = error
-                                self.showAlert = true
-                                status = .idle
                             }
+                            status = .idle
+                        } catch {
+                            print("Error sending message: \(error)")
+                            self.error = error
+                            self.showAlert = true
+                            status = .idle
                         }
                     }
                 },

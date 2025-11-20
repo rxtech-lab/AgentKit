@@ -22,51 +22,54 @@ struct ModelPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ForEach(sources) { source in
-                Text(source.displayName)
-                    .foregroundColor(Color.gray)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(sources) { source in
+                    Text(source.displayName)
+                        .foregroundColor(Color.gray)
 
-                ForEach(source.models) { model in
-                    HStack {
-                        Text(model.displayName)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        // if model is custom model, show custom icon
-                        if case .custom = model {
-                            Image(systemName: "gear")
-                                .padding()
+                    ForEach(source.models) { model in
+                        HStack {
+                            Text(model.displayName)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            // if model is custom model, show custom icon
+                            if case .custom = model {
+                                Image(systemName: "gear")
+                                    .padding()
+                            }
+                            if model == currentModel {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                                    .padding(.trailing, 12)
+                            }
                         }
-                        if model == currentModel {
-                            Spacer()
-                            Image(systemName: "checkmark")
-                                .padding(.trailing, 12)
+                        .onHover { hovering in
+                            if hovering {
+                                hoveredModel = model
+                            } else {
+                                hoveredModel = nil
+                            }
                         }
-                    }
-                    .onHover { hovering in
-                        if hovering {
-                            hoveredModel = model
-                        } else {
-                            hoveredModel = nil
+                        .background(
+                            hoveredModel == model ? Color.gray.opacity(0.12) : Color.clear
+                        )
+                        .cornerRadius(10)
+                        .frame(width: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .onTapGesture {
+                            withAnimation {
+                                currentModel = model
+                            }
+                            onClose()
                         }
-                    }
-                    .background(
-                        hoveredModel == model ? Color.gray.opacity(0.12) : Color.clear
-                    )
-                    .cornerRadius(10)
-                    .frame(width: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .onTapGesture {
-                        withAnimation {
-                            currentModel = model
-                        }
-                        onClose()
                     }
                 }
             }
+            .padding()
         }
-        .padding()
+        .frame(maxHeight: 400)
     }
 }
 
