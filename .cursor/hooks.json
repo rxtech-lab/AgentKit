@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      { "command": "swiftformat --config .swiftformat Sources" }
+    ],
+    "stop": [
+      {
+        "command": "swift build && swift test"
+      }
+    ]
+  }
+}

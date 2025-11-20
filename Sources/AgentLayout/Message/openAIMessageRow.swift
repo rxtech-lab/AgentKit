@@ -18,6 +18,7 @@ struct OpenAIMessageRow: View {
     @State private var isHovering = false
     @State private var isEditing = false
     @State private var editedContent: String = ""
+    @State private var hideTask: Task<Void, Never>?
     var onDelete: OnDelete = nil
     var onEdit: OnEdit = nil
 
@@ -184,14 +185,31 @@ struct OpenAIMessageRow: View {
                     Spacer()
                 }
             }
-            .opacity(isEditing || role == .assistant ? 1 : isHovering ? 1 : 0)
+            .opacity(isEditing || isHovering ? 1 : 0)
             .padding(.horizontal, 10)
             .padding(.vertical, 2)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovering = hovering
+            if hovering {
+                // Cancel any pending hide task and show immediately
+                hideTask?.cancel()
+                hideTask = nil
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHovering = true
+                }
+            } else {
+                // Delay hiding the actions
+                hideTask = Task {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)  // 2 seconds
+                    if !Task.isCancelled {
+                        await MainActor.run {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isHovering = false
+                            }
+                        }
+                    }
+                }
             }
         }
     }
