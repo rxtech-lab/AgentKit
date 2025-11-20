@@ -6,9 +6,9 @@
 //
 
 import Agent
-import SwiftfulLoadingIndicators
 import SwiftUI
 import SwiftUIIntrospect
+import SwiftfulLoadingIndicators
 
 // Define placeholder enum if OpenAICompatibleModel is not available at compile time
 #if !PREVIEW
@@ -25,20 +25,21 @@ struct MessageInputView: View {
     @Binding var currentModel: Model
     @Binding var currentSource: Source
     let sources: [Source]
-    var onSend: () -> Void
+    var onSend: (String) -> Void
     let onCancel: () -> Void
     let status: ChatStatus
 
     @State private var showModelPicker = false
 
-    init(text: Binding<String>,
-         status: ChatStatus,
-         currentModel: Binding<Model>,
-         currentSource: Binding<Source>,
-         sources: [Source],
-         onSend: @escaping () -> Void,
-         onCancel: @escaping () -> Void = {})
-    {
+    init(
+        text: Binding<String>,
+        status: ChatStatus,
+        currentModel: Binding<Model>,
+        currentSource: Binding<Source>,
+        sources: [Source],
+        onSend: @escaping (String) -> Void,
+        onCancel: @escaping () -> Void = {}
+    ) {
         self._text = text
         self.status = status
         self._currentModel = currentModel
@@ -50,28 +51,24 @@ struct MessageInputView: View {
 
     var body: some View {
         return VStack(spacing: 0) {
-            HStack(alignment: .bottom, spacing: 8) {
-                TextEditor(text: $text)
-                    .scrollContentBackground(.hidden)
-                    .textEditorStyle(.plain)
-                    .lineSpacing(2)
-                    .introspect(.textEditor, on: .macOS(.v11, .v12, .v13, .v14, .v15), customize: { view in
-                        view.enclosingScrollView?.scrollerStyle = .overlay
-                    })
+            HStack(alignment: .top, spacing: 8) {
+                TextField("Message...", text: $text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...6)
                     .onKeyPress { press in
-                        if press.key == .return && press.modifiers.contains(.shift) {
-                            text += "\n"
+                        guard press.key == .return else { return .ignored }
+                        if press.modifiers.contains(.shift) {
+                            text.append("\n")
                             return .handled
                         }
-                        return .ignored
-                    }
-                    .onSubmit {
                         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            onSend()
+                            onSend(text)
                         }
+                        return .handled
                     }
-                    .padding(.top, 10)
+                    .padding(.vertical, 8)
             }
+            Spacer(minLength: 0)
             HStack {
                 Button {
                     showModelPicker.toggle()
@@ -79,11 +76,12 @@ struct MessageInputView: View {
                     Text(currentModel.displayName)
                 }
                 #if os(macOS)
-                .buttonStyle(.accessoryBar)
+                    .buttonStyle(.accessoryBar)
                 #endif
                 .popover(isPresented: $showModelPicker) {
                     ModelPicker(
-                        currentModel: $currentModel, currentSource: $currentSource, sources: sources,
+                        currentModel: $currentModel, currentSource: $currentSource,
+                        sources: sources,
                         onClose: { showModelPicker = false }
                     )
                 }
@@ -94,7 +92,7 @@ struct MessageInputView: View {
                         onCancel()
                     } else {
                         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            onSend()
+                            onSend(text)
                         }
                     }
                 }) {
@@ -121,13 +119,17 @@ struct MessageInputView: View {
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .frame(minHeight: 80, maxHeight: 240)
+        .fixedSize(horizontal: false, vertical: true)
         .clipped()
-        .frame(maxHeight: 180)
         .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .padding(.bottom, 6)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(.gray.opacity(0.1))
+                .fill(.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
                 .stroke(.gray, lineWidth: 0.2)
         )
         .padding()
@@ -136,21 +138,21 @@ struct MessageInputView: View {
 
 #Preview {
     @Previewable @State var text = """
-    This is
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    long text
-    """
+        This is
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        long text
+        """
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt-4o"))
     @Previewable @State var currentSource: Source = .init(
         displayName: "OpenAI",
@@ -162,6 +164,7 @@ struct MessageInputView: View {
             .openAI(.init(id: "gpt-4")),
         ]
     )
+    @Previewable @State var shortText = "Hello, world!"
 
     MessageInputView(
         text: $text,
@@ -169,13 +172,15 @@ struct MessageInputView: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
-                  models: [
-                      .openAI(.init(id: "gpt-4o")),
-                      .openAI(.init(id: "gpt-4")),
-                  ]),
+            .init(
+                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+                models: [
+                    .openAI(.init(id: "gpt-4o")),
+                    .openAI(.init(id: "gpt-4")),
+                ]
+            )
         ],
-        onSend: {}
+        onSend: { _ in }
     )
     .frame(height: 250)
 
@@ -185,14 +190,33 @@ struct MessageInputView: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
-                  models: [
-                      .openAI(.init(id: "gpt-4o")),
-                      .openAI(.init(id: "gpt-4")),
-                  ]),
+            .init(
+                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+                models: [
+                    .openAI(.init(id: "gpt-4o")),
+                    .openAI(.init(id: "gpt-4")),
+                ]
+            )
         ],
-        onSend: {},
+        onSend: { _ in },
         onCancel: {}
     )
-    .frame(height: 250)
+
+    MessageInputView(
+        text: $shortText,
+        status: .loading,
+        currentModel: $currentModel,
+        currentSource: $currentSource,
+        sources: [
+            .init(
+                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+                models: [
+                    .openAI(.init(id: "gpt-4o")),
+                    .openAI(.init(id: "gpt-4")),
+                ]
+            )
+        ],
+        onSend: { _ in },
+        onCancel: {}
+    )
 }

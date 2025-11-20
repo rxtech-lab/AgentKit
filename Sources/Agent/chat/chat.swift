@@ -6,7 +6,7 @@
 
 import Foundation
 
-public struct Chat {
+public struct Chat: Identifiable, Equatable, Hashable {
     public var id: UUID
     public var gameId: String
     public var messages: [Message]
