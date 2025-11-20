@@ -86,6 +86,44 @@ actor OpenAIClient {
         return responseStream
     }
 
+    func streamChat(
+        messages: [OpenAIMessage],
+        model: String,
+        tools: [OpenAITool] = []
+    ) -> AsyncThrowingStream<OpenAIAssistantMessage, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let requestBody = OpenAIRequest(
+                        model: model,
+                        messages: messages,
+                        stream: true,
+                        tools: tools.map {
+                            OpenAIRequest.FunctionTool(type: "function", function: $0)
+                        }
+                    )
+
+                    let responseStream = try await makeRequest(body: requestBody)
+
+                    for try await line in responseStream.lines {
+                        if line.hasPrefix("data: "),
+                            let data = line.dropFirst(6).data(using: .utf8)
+                        {
+                            if let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
+                                let delta = json.choices.first?.delta
+                            {
+                                continuation.yield(delta)
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
     func generateStreamResponse(
         systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel,
         tools: [OpenAITool] = [], history: [OpenAIMessage] = []

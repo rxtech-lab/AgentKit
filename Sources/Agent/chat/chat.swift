@@ -23,7 +23,7 @@ public enum ChatStatus {
     case loading
 }
 
-public enum Message: Identifiable, Hashable {
+public enum Message: Identifiable, Hashable, Sendable {
     case openai(OpenAIMessage)
 
     public var id: String {

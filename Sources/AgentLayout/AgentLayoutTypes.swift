@@ -1,7 +1,7 @@
 import Agent
 import SwiftUI
 
-public protocol ChatProvider {
+public protocol ChatProvider: Sendable {
     func sendMessage(message: String, model: Model) async throws
 }
 
@@ -12,4 +12,3 @@ public enum RenderAction {
 }
 
 public typealias MessageRenderer = (Message, [Message], ChatProvider?) -> (AnyView, RenderAction)
-

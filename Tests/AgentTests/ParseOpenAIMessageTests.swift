@@ -38,8 +38,8 @@ class ParseOpenAIMessageTests: XCTestCase {
             XCTAssertEqual(assistantMessage.toolCalls?.count, 1)
             XCTAssertEqual(assistantMessage.toolCalls?[0].id, "string")
             XCTAssertEqual(assistantMessage.toolCalls?[0].type, .function)
-            XCTAssertEqual(assistantMessage.toolCalls?[0].function.name, "string")
-            XCTAssertEqual(assistantMessage.toolCalls?[0].function.arguments, "string")
+            XCTAssertEqual(assistantMessage.toolCalls?[0].function?.name, "string")
+            XCTAssertEqual(assistantMessage.toolCalls?[0].function?.arguments, "string")
         } else {
             XCTFail("Message is not an assistant message")
         }

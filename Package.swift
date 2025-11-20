@@ -14,16 +14,18 @@ let package = Package(
         .library(
             name: "AgentKit",
             targets: ["AgentLayout", "Agent"]
-        ),
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/siteline/swiftui-introspect", from: "1.0.0"),
         .package(url: "https://github.com/markiv/SwiftUI-Shimmer", from: "1.0.0"),
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
         .package(url: "https://github.com/JohnSundell/Splash", exact: "0.16.0"),
-        .package(url: "https://github.com/sirily11/swift-json-schema", branch: "main"),
+        .package(url: "https://github.com/sirily11/swift-json-schema", from: "1.0.0"),
+        .package(url: "https://github.com/sirily11/swift-json-schema-macro", from: "1.0.2"),
         .package(url: "https://github.com/vapor/vapor", from: "4.115.0"),
-        .package(url: "https://github.com/SwiftfulThinking/SwiftfulLoadingIndicators", from: "0.0.4"),
+        .package(
+            url: "https://github.com/SwiftfulThinking/SwiftfulLoadingIndicators", from: "0.0.4"),
         .package(url: "https://github.com/nalexn/ViewInspector", from: "0.10.0"),
     ],
     targets: [
@@ -44,6 +46,7 @@ let package = Package(
             name: "Agent",
             dependencies: [
                 .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "SwiftJSONSchema", package: "swift-json-schema-macro"),
             ]
         ),
         .testTarget(
