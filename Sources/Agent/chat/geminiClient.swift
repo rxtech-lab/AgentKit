@@ -161,18 +161,24 @@ actor GeminiClient {
                         {
                             let content = candidate.content
                             
-                            // Accumulate text parts
+                            // Build the complete parts list
+                            var newParts: [GeminiPart] = []
                             for part in content.parts {
                                 if case .text(let textPart) = part {
                                     totalText += textPart.text
-                                    totalParts.append(.text(GeminiTextPart(text: totalText)))
                                 } else {
                                     totalParts.append(part)
                                 }
                             }
                             
+                            // Create the parts list with accumulated text and other parts
+                            if !totalText.isEmpty {
+                                newParts.append(.text(GeminiTextPart(text: totalText)))
+                            }
+                            newParts.append(contentsOf: totalParts)
+                            
                             // Yield the accumulated message
-                            let message = GeminiModelMessage(parts: totalParts)
+                            let message = GeminiModelMessage(parts: newParts)
                             continuation.yield(.model(message))
                         }
                     }
