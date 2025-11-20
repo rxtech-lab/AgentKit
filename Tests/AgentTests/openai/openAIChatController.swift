@@ -13,16 +13,16 @@ import Vapor
 /// A controller that mocks OpenAI chat completion API responses
 @MainActor
 class OpenAIChatController {
-    private var mockResponses: [OpenAIAssistantMessage]
+    private var mockResponseQueue: [[OpenAIAssistantMessage]]
 
     init() {
-        self.mockResponses = []
+        self.mockResponseQueue = []
     }
 
-    /// Set mock responses to be returned in the streaming API
-    /// - Parameter responses: List of assistant messages to be returned as chunks
+    /// Add a set of mock responses to be returned for a single request
+    /// - Parameter responses: List of assistant messages to be returned as chunks for one request
     func mockChatResponse(_ responses: [OpenAIAssistantMessage]) {
-        mockResponses = responses
+        mockResponseQueue.append(responses)
     }
 
     /// Register routes for this controller on a Vapor router
@@ -34,13 +34,21 @@ class OpenAIChatController {
     }
 
     private func handleChatCompletion(request: Request) async throws -> Response {
+        // Capture queue for this request safely
+        let responses: [OpenAIAssistantMessage]
+        if !self.mockResponseQueue.isEmpty {
+            responses = self.mockResponseQueue.removeFirst()
+        } else {
+            responses = []
+        }
+        
         let body = Response.Body(stream: { writer in
             Task {
-                let mockResponses = await self.mockResponses
+                let capturedResponses = responses
                 let id = UUID().uuidString
                 let created = Date().timeIntervalSince1970
                 let model = "gpt-3.5-turbo"
-                for response in mockResponses {
+                for response in capturedResponses {
                     let chunk = StreamChunk(
                         id: id,
                         created: Int(created),
@@ -51,11 +59,12 @@ class OpenAIChatController {
                             )
                         ]
                     )
-                    let jsonData = try JSONEncoder().encode(chunk)
-                    let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-                    _ = writer.write(.buffer(ByteBuffer(string: "data: \(jsonString)")))
+                    if let jsonData = try? JSONEncoder().encode(chunk),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        _ = writer.write(.buffer(ByteBuffer(string: "data: \(jsonString)\n\n")))
+                    }
                 }
-
+                
                 _ = writer.write(.end)
             }
         })

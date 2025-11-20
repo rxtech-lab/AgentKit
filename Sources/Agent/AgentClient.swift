@@ -1,0 +1,164 @@
+import Combine
+import Foundation
+
+public enum AgentResponsePart: Sendable {
+    case textDelta(String)
+    case message(Message)
+    case error(Error)
+}
+
+public actor AgentClient {
+    public init() {}
+
+    public func process(
+        messages: [Message],
+        model: String,
+        tools: [AgentTool],
+        source: Source
+    ) -> AsyncThrowingStream<AgentResponsePart, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                var currentMessages: [OpenAIMessage] = messages.compactMap { msg in
+                    if case .openai(let m) = msg { return m }
+                    return nil
+                }
+
+                var keepGoing = true
+
+                while keepGoing {
+                    if Task.isCancelled {
+                        continuation.finish()
+                        return
+                    }
+
+                    let client = OpenAIClient(
+                        baseURL: URL(string: source.endpoint)!, apiKey: source.apiKey)
+                    let openAITools = tools.map {
+                        OpenAITool(
+                            name: $0.name, description: $0.description, parameters: $0.parameters)
+                    }
+
+                    var currentAssistantContent = ""
+                    // Accumulate tool calls: index -> (id, type, name, arguments)
+                    var accumulatedToolCalls:
+                        [Int: (
+                            id: String?, type: OpenAIToolCall.ToolType?, name: String?,
+                            arguments: String
+                        )] = [:]
+
+                    do {
+                        let stream = await client.streamChat(
+                            messages: currentMessages,
+                            model: model,
+                            tools: openAITools
+                        )
+
+                        var hasToolCalls = false
+
+                        for try await delta in stream {
+                            if let content = delta.content {
+                                currentAssistantContent += content
+                                continuation.yield(.textDelta(content))
+                            }
+
+                            if let toolCalls = delta.toolCalls {
+                                hasToolCalls = true
+                                for toolCall in toolCalls {
+                                    let index = toolCall.index ?? 0
+                                    var current = accumulatedToolCalls[index] ?? (nil, nil, nil, "")
+
+                                    if let id = toolCall.id { current.id = id }
+                                    if let type = toolCall.type { current.type = type }
+                                    if let function = toolCall.function {
+                                        if let name = function.name { current.name = name }
+                                        if let args = function.arguments {
+                                            current.arguments += args
+                                        }
+                                    }
+                                    accumulatedToolCalls[index] = current
+                                }
+                            }
+                        }
+
+                        // Turn finished
+                        var finalToolCalls: [OpenAIToolCall] = []
+                        if hasToolCalls {
+                            let sortedIndices = accumulatedToolCalls.keys.sorted()
+                            for index in sortedIndices {
+                                if let acc = accumulatedToolCalls[index],
+                                    let id = acc.id,
+                                    let type = acc.type,
+                                    let name = acc.name
+                                {
+                                    finalToolCalls.append(
+                                        OpenAIToolCall(
+                                            index: index,
+                                            id: id,
+                                            type: type,
+                                            function: .init(name: name, arguments: acc.arguments)
+                                        ))
+                                }
+                            }
+                        }
+
+                        let assistantMessage = OpenAIAssistantMessage(
+                            content: currentAssistantContent.isEmpty
+                                ? nil : currentAssistantContent,
+                            toolCalls: finalToolCalls.isEmpty ? nil : finalToolCalls,
+                            audio: nil
+                        )
+
+                        currentMessages.append(.assistant(assistantMessage))
+                        continuation.yield(.message(.openai(.assistant(assistantMessage))))
+
+                        if finalToolCalls.isEmpty {
+                            keepGoing = false
+                        } else {
+                            // Parallel execution
+                            await withTaskGroup(of: OpenAIMessage?.self) { group in
+                                for toolCall in finalToolCalls {
+                                    group.addTask {
+                                        guard let function = toolCall.function,
+                                            let name = function.name,
+                                            let args = function.arguments,
+                                            let id = toolCall.id
+                                        else { return nil }
+
+                                        if let tool = tools.first(where: { $0.name == name }) {
+                                            do {
+                                                let result = try await tool.execute(args)
+                                                return .tool(.init(content: result, toolCallId: id))
+                                            } catch {
+                                                return .tool(
+                                                    .init(
+                                                        content:
+                                                            "Error: \(error.localizedDescription)",
+                                                        toolCallId: id))
+                                            }
+                                        } else {
+                                            return .tool(
+                                                .init(
+                                                    content: "Tool \(name) not found.",
+                                                    toolCallId: id))
+                                        }
+                                    }
+                                }
+
+                                for await result in group {
+                                    if let msg = result {
+                                        currentMessages.append(msg)
+                                        continuation.yield(.message(.openai(msg)))
+                                    }
+                                }
+                            }
+                        }
+                    } catch {
+                        continuation.finish(throwing: error)
+                        return
+                    }
+                }
+                continuation.finish()
+            }
+        }
+    }
+}

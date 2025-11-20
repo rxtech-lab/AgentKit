@@ -9,7 +9,7 @@ extension MessageRow: Inspectable {}
 extension MessageInputView: Inspectable {}
 
 struct MockChatProvider: ChatProvider {
-    let onSend: ((String, Model) -> Void)?
+    let onSend: (@Sendable (String, Model) -> Void)?
     
     func sendMessage(message: String, model: Model) async throws {
         onSend?(message, model)

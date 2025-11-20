@@ -149,20 +149,22 @@ public struct OpenAIToolCall: Hashable, Codable, Sendable {
     }
 
     public struct Function: Hashable, Codable, Sendable {
-        public let name: String
-        public let arguments: String
+        public let name: String?
+        public let arguments: String?
 
-        public init(name: String, arguments: String) {
+        public init(name: String?, arguments: String?) {
             self.name = name
             self.arguments = arguments
         }
     }
 
-    public let id: String
-    public let type: ToolType
-    public let function: Function
+    public let index: Int?
+    public let id: String?
+    public let type: ToolType?
+    public let function: Function?
 
-    public init(id: String, type: ToolType, function: Function) {
+    public init(index: Int? = nil, id: String?, type: ToolType?, function: Function?) {
+        self.index = index
         self.id = id
         self.type = type
         self.function = function
@@ -174,7 +176,7 @@ public struct OpenAITool: Codable, Sendable {
     public var description: String
     public var parameters: JSONSchema
     public var strict: Bool
-    
+
     public init(name: String, description: String, parameters: JSONSchema, strict: Bool = false) {
         self.name = name
         self.description = description

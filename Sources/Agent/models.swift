@@ -1,7 +1,7 @@
 import Foundation
 
 /// Type of the api. Used to determine which client to use.
-public enum ApiType: String {
+public enum ApiType: String, Sendable {
     /// Any openai compatible api should use this type
     case openAI = "openai"
 }
@@ -78,7 +78,7 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
     }
 }
 
-public struct CustomModel: Identifiable, Hashable {
+public struct CustomModel: Identifiable, Hashable, Sendable {
     public let id: String
 
     public init(id: String) {
@@ -86,7 +86,7 @@ public struct CustomModel: Identifiable, Hashable {
     }
 }
 
-public enum Provider: Identifiable, Hashable {
+public enum Provider: Identifiable, Hashable, Sendable {
     case openAI
     case openRouter
     case custom(String)
@@ -123,7 +123,7 @@ public enum Provider: Identifiable, Hashable {
     }
 }
 
-public enum Model: Identifiable, Hashable {
+public enum Model: Identifiable, Hashable, Sendable {
     /// An OpenAI, OpenRouter, or other compatible model
     /// If you are using custom endpoints, you can use the `custom` case
     case openAI(OpenAICompatibleModel)
@@ -149,7 +149,7 @@ public enum Model: Identifiable, Hashable {
     }
 }
 
-public struct Source: Identifiable, Hashable {
+public struct Source: Identifiable, Hashable, Sendable {
     public let id: String
     public let endpoint: String
     public let apiKey: String

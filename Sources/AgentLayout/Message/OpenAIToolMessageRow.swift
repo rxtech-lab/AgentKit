@@ -45,7 +45,7 @@ struct OpenAIToolMessageRow: View {
 
                     if toolResponse != nil {
                         Label {
-                            Text("Tool call complete: \(toolCall.function.name)")
+                            Text("Tool call complete: \(toolCall.function?.name ?? "Unknown")")
                                 .lineLimit(1)
                         } icon: {
                             Image(systemName: "checkmark.circle.fill")
@@ -53,7 +53,7 @@ struct OpenAIToolMessageRow: View {
                         .foregroundColor(.orange.mix(with: .mint, by: 0.9))
                     } else if status == .loading {
                         Label {
-                            Text("Calling tool: \(toolCall.function.name)")
+                            Text("Calling tool: \(toolCall.function?.name ?? "Unknown")")
                                 .lineLimit(1)
                                 .shimmering()
                         } icon: {
@@ -62,7 +62,7 @@ struct OpenAIToolMessageRow: View {
                         }
                     } else {
                         Label {
-                            Text("Calling tool: \(toolCall.function.name)")
+                            Text("Calling tool: \(toolCall.function?.name ?? "Unknown")")
                                 .lineLimit(1)
                         } icon: {
                             Image(systemName: "terminal.fill")
@@ -82,7 +82,7 @@ struct OpenAIToolMessageRow: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        JSONSyntaxView(jsonString: toolCall.function.arguments)
+                        JSONSyntaxView(jsonString: toolCall.function?.arguments ?? "")
                             .padding(8)
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(8)

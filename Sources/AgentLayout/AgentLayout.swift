@@ -29,6 +29,7 @@ public struct AgentLayout: View {
     @State private var showAlert: Bool = false
     @State private var status: ChatStatus = .idle
     @State private var inputHeight: CGFloat = 80
+    @State private var agentClient = AgentClient()
 
     @Binding var currentModel: Model
     @Binding var currentSource: Source
@@ -37,6 +38,7 @@ public struct AgentLayout: View {
     let chatProvider: ChatProvider?
     let renderMessage: MessageRenderer?
     let onSend: ((String) -> Void)?
+    let tools: [AgentTool]
 
     public init(
         chat: Chat,
@@ -45,7 +47,8 @@ public struct AgentLayout: View {
         sources: [Source],
         chatProvider: ChatProvider? = nil,
         renderMessage: MessageRenderer? = nil,
-        onSend: ((String) -> Void)? = nil
+        onSend: ((String) -> Void)? = nil,
+        tools: [AgentTool] = []
     ) {
         self._chat = .init(initialValue: chat)
         self.initialChat = chat
@@ -55,6 +58,7 @@ public struct AgentLayout: View {
         self.chatProvider = chatProvider
         self.renderMessage = renderMessage
         self.onSend = onSend
+        self.tools = tools
     }
 
     public var body: some View {
@@ -133,20 +137,87 @@ public struct AgentLayout: View {
                 currentSource: $currentSource,
                 sources: sources,
                 onSend: { message in
-                    // newMessage = "" // MessageInputView doesn't clear text automatically if we pass it?
-                    // Wait, MessageInputView doesn't clear text. We should clear it here.
                     newMessage = ""
 
                     if let onSend = onSend {
                         onSend(message)
-                    } else if let chatProvider = chatProvider {
-                        let model = currentModel
+                    } else {
+                        // Default logic using AgentClient
+                        let userMsg = Message.openai(.user(.init(content: message)))
+                        chat.messages.append(userMsg)
+
                         Task {
                             status = .loading
+                            // Notify chatProvider if exists (persistence)
+                            if let chatProvider = chatProvider {
+                                try? await chatProvider.sendMessage(
+                                    message: message, model: currentModel)
+                            }
+
                             do {
-                                try await chatProvider.sendMessage(
-                                    message: message, model: model
+                                let stream = await agentClient.process(
+                                    messages: chat.messages,
+                                    model: currentModel.id,
+                                    tools: tools,
+                                    source: currentSource
                                 )
+
+                                var currentAssistantId = UUID().uuidString
+                                var currentAssistantContent = ""
+                                var isFirstChunk = true
+
+                                for try await part in stream {
+                                    switch part {
+                                    case .textDelta(let text):
+                                        currentAssistantContent += text
+                                        if isFirstChunk {
+                                            let newMsg = Message.openai(
+                                                .assistant(
+                                                    .init(
+                                                        id: currentAssistantId,
+                                                        content: currentAssistantContent,
+                                                        toolCalls: nil, audio: nil)))
+                                            chat.messages.append(newMsg)
+                                            isFirstChunk = false
+                                        } else {
+                                            let count = chat.messages.count
+                                            if count > 0 {
+                                                chat.messages[count - 1] = Message.openai(
+                                                    .assistant(
+                                                        .init(
+                                                            id: currentAssistantId,
+                                                            content: currentAssistantContent,
+                                                            toolCalls: nil, audio: nil)))
+                                            }
+                                        }
+                                    case .message(let msg):
+                                        // Determine if we are updating the last message or appending a new one
+                                        // msg is already of type Message (e.g. .openai(...))
+
+                                        if case .openai(let openAIMsg) = msg,
+                                            case .assistant = openAIMsg.role
+                                        {
+                                            if !isFirstChunk {
+                                                let count = chat.messages.count
+                                                if count > 0 {
+                                                    chat.messages[count - 1] = msg
+                                                }
+                                            } else {
+                                                chat.messages.append(msg)
+                                            }
+                                            // Prepare for next turn (potentially) or finish
+                                            isFirstChunk = true
+                                            currentAssistantContent = ""
+                                            currentAssistantId = UUID().uuidString
+                                        } else {
+                                            chat.messages.append(msg)
+                                        }
+                                    case .error(let e):
+                                        print("Agent Error: \(e)")
+                                        self.error = e
+                                        self.showAlert = true
+                                    }
+                                }
                                 status = .idle
                             } catch {
                                 print("Error sending message: \(error)")
