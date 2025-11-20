@@ -4,6 +4,8 @@ import Foundation
 public enum ApiType: String {
     /// Any openai compatible api should use this type
     case openAI = "openai"
+    /// Google Gemini API
+    case gemini = "gemini"
 }
 
 /// Represents the architecture of an AI model, including its input/output modalities and tokenizer.
@@ -89,6 +91,7 @@ public struct CustomModel: Identifiable, Hashable {
 public enum Provider: Identifiable, Hashable {
     case openAI
     case openRouter
+    case gemini
     case custom(String)
 
     public var id: String {
@@ -103,6 +106,8 @@ public enum Provider: Identifiable, Hashable {
             return "openai"
         case .openRouter:
             return "openrouter"
+        case .gemini:
+            return "gemini"
         }
     }
 
@@ -118,6 +123,7 @@ public enum Provider: Identifiable, Hashable {
         [
             "openai",
             "openrouter",
+            "gemini",
             "custom",
         ]
     }
