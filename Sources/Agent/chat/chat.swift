@@ -29,7 +29,16 @@ public enum Message: Identifiable, Hashable, Sendable {
     public var id: String {
         switch self {
         case .openai(let openAIMessage):
-            return String(openAIMessage.hashValue)
+            switch openAIMessage {
+            case .user(let msg):
+                return msg.id
+            case .assistant(let msg):
+                return msg.id
+            case .system(let msg):
+                return msg.id
+            case .tool(let msg):
+                return msg.id
+            }
         }
     }
 }

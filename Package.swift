@@ -51,7 +51,11 @@ let package = Package(
         ),
         .testTarget(
             name: "AgentLayoutTests",
-            dependencies: ["AgentLayout", "ViewInspector"]
+            dependencies: [
+                "AgentLayout",
+                "ViewInspector",
+                .product(name: "Vapor", package: "vapor"),
+            ]
         ),
         .testTarget(
             name: "AgentTests",
