@@ -31,8 +31,13 @@ public actor AgentClient {
                         return
                     }
 
+                    guard let baseURL = URL(string: source.endpoint) else {
+                        continuation.finish(throwing: URLError(.badURL))
+                        return
+                    }
+
                     let client = OpenAIClient(
-                        baseURL: URL(string: source.endpoint)!, apiKey: source.apiKey)
+                        baseURL: baseURL, apiKey: source.apiKey)
                     let openAITools = tools.map {
                         OpenAITool(
                             name: $0.name, description: $0.description, parameters: $0.parameters)
