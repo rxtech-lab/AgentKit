@@ -186,13 +186,30 @@ public struct OpenAITool: Codable, Sendable {
 }
 
 public struct OpenAIUserMessage: Hashable, Codable, Sendable {
+    public let id: String
     public var role: OpenAIRole = .user
     public var content: String
     public var createdAt: Date
 
-    public init(content: String, createdAt: Date = Date()) {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case content
+        case createdAt
+    }
+
+    public init(id: String = UUID().uuidString, content: String, createdAt: Date = Date()) {
+        self.id = id
         self.content = content
         self.createdAt = createdAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .user
+        self.content = try container.decode(String.self, forKey: .content)
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 }
 
@@ -217,7 +234,7 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
         case audio
     }
 
-    public let id: String?
+    public let id: String
     public var role: OpenAIRole = .assistant
     public let content: String?
     public let toolCalls: [OpenAIToolCall]?
@@ -226,10 +243,19 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
     public init(
         id: String? = nil, content: String? = nil, toolCalls: [OpenAIToolCall]? = nil, audio: Audio?
     ) {
-        self.id = id
+        self.id = id ?? UUID().uuidString
         self.content = content
         self.toolCalls = toolCalls
         self.audio = audio
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .assistant
+        self.content = try container.decodeIfPresent(String.self, forKey: .content)
+        self.toolCalls = try container.decodeIfPresent([OpenAIToolCall].self, forKey: .toolCalls)
+        self.audio = try container.decodeIfPresent(Audio.self, forKey: .audio)
     }
 
     /// Convert the response assistant message to request message. Will drop the audio.
@@ -244,22 +270,54 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
 }
 
 public struct OpenAISystemMessage: Hashable, Codable, Sendable {
+    public let id: String
     public var role: OpenAIRole = .system
     public let content: String
 
-    public init(content: String) {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case content
+    }
+
+    public init(id: String = UUID().uuidString, content: String) {
+        self.id = id
         self.content = content
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .system
+        self.content = try container.decode(String.self, forKey: .content)
     }
 }
 
 public struct OpenAIToolMessage: Hashable, Codable, Sendable {
+    public let id: String
     public var role: OpenAIRole = .tool
     public let content: String
     public let toolCallId: String
 
-    public init(content: String, toolCallId: String) {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case content
+        case toolCallId
+    }
+
+    public init(id: String = UUID().uuidString, content: String, toolCallId: String) {
+        self.id = id
         self.content = content
         self.toolCallId = toolCallId
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .tool
+        self.content = try container.decode(String.self, forKey: .content)
+        self.toolCallId = try container.decode(String.self, forKey: .toolCallId)
     }
 }
 

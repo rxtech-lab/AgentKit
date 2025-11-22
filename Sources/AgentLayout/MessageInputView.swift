@@ -117,7 +117,7 @@ struct MessageInputView: View {
                 .buttonBorderShape(.circle)
                 .background(status == .idle ? .black : .gray.opacity(0.2))
                 .cornerRadius(999)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(status == .idle && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .frame(minHeight: 80, maxHeight: 240)

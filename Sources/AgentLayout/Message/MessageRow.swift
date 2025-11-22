@@ -10,19 +10,32 @@ import SwiftUI
 
 typealias OnDelete = (() -> Void)?
 typealias OnEdit = ((_ newContent: String) -> Void)?
+typealias OnRegenerate = (() -> Void)?
 
 struct MessageRow: View {
     let id: String
     let message: Message
     let messages: [Message]
+    let status: ChatStatus
+    let isLastMessage: Bool
     let onDelete: OnDelete
     let onEdit: OnEdit
+    let onRegenerate: OnRegenerate
 
-    init(id: String, message: Message, messages: [Message] = [], onDelete: OnDelete = nil, onEdit: OnEdit = nil) {
+    init(
+        id: String, message: Message, messages: [Message] = [],
+        status: ChatStatus = .idle,
+        isLastMessage: Bool = false,
+        onDelete: OnDelete = nil,
+        onEdit: OnEdit = nil, onRegenerate: OnRegenerate = nil
+    ) {
         self.id = id
         self.message = message
+        self.status = status
+        self.isLastMessage = isLastMessage
         self.onDelete = onDelete
         self.onEdit = onEdit
+        self.onRegenerate = onRegenerate
         self.messages = messages
     }
 
@@ -39,17 +52,19 @@ struct MessageRow: View {
                     return nil
 
                 },
+                status: status,
+                isLastMessage: isLastMessage,
                 onDelete: onDelete,
-                onEdit: onEdit
+                onEdit: onEdit,
+                onRegenerate: onRegenerate
             )
         }
     }
 }
 
-
- #Preview {
+#Preview {
     Group {
         MessageRow(id: "1", message: .openai(.user(.init(content: "Hi"))))
     }
     .padding()
- }
+}

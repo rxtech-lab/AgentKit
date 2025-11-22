@@ -10,17 +10,36 @@ import Shimmer
 import Splash
 import SwiftUI
 
+struct BlinkingDot: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.primary)
+            .frame(width: 8, height: 8)
+            .opacity(isAnimating ? 0.3 : 1.0)
+            .animation(
+                Animation.easeInOut(duration: 0.6)
+                    .repeatForever(autoreverses: true),
+                value: isAnimating
+            )
+            .onAppear { isAnimating = true }
+    }
+}
+
 struct OpenAIMessageRow: View {
     let id: String
     let message: OpenAIMessage
     let messages: [OpenAIMessage]
     let status: ChatStatus
+    let isLastMessage: Bool
     @State private var isHovering = false
     @State private var isEditing = false
     @State private var editedContent: String = ""
     @State private var hideTask: Task<Void, Never>?
     var onDelete: OnDelete = nil
     var onEdit: OnEdit = nil
+    var onRegenerate: OnRegenerate = nil
 
     // Computed properties to access message data
     private var content: String? {
@@ -48,13 +67,16 @@ struct OpenAIMessageRow: View {
     public init(
         id: String, message: OpenAIMessage, messages: [OpenAIMessage] = [],
         status: ChatStatus = .idle,
-        onDelete: OnDelete = nil, onEdit: OnEdit = nil
+        isLastMessage: Bool = false,
+        onDelete: OnDelete = nil, onEdit: OnEdit = nil, onRegenerate: OnRegenerate = nil
     ) {
         self.id = id
         self.message = message
         self.status = status
+        self.isLastMessage = isLastMessage
         self.onDelete = onDelete
         self.onEdit = onEdit
+        self.onRegenerate = onRegenerate
         self.messages = messages
     }
 
@@ -69,7 +91,7 @@ struct OpenAIMessageRow: View {
                             .background(Color.gray.opacity(0.18))
                             .cornerRadius(16)
                             .textEditorStyle(.plain)
-                            .frame(maxWidth: 280, minHeight: 80, alignment: .trailing)
+                            .frame(maxWidth: 400, minHeight: 80, alignment: .trailing)
                     } else {
                         if let content = content {
                             Markdown(content)
@@ -83,7 +105,7 @@ struct OpenAIMessageRow: View {
                                 .background(Color.gray.opacity(0.18))
                                 .foregroundColor(.primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
-                                .frame(maxWidth: 280, alignment: .trailing)
+                                .frame(maxWidth: 400, alignment: .trailing)
                         }
                     }
                 } else {
@@ -98,6 +120,7 @@ struct OpenAIMessageRow: View {
                             .padding(.horizontal, 12)
                             .padding(.top, 10)
                             .foregroundColor(.primary)
+                            .frame(maxWidth: 600, alignment: .leading)
                     }
                     Spacer()
                 }
@@ -110,12 +133,23 @@ struct OpenAIMessageRow: View {
                         OpenAIToolMessageRow(
                             toolCall: toolCall,
                             messages: messages,
-                            status: status
-                        )
+                            status: status)
                     }
                 }
                 .padding(.leading, 12)
                 .padding(.top, 4)
+            }
+
+            // Blinking dot for loading state when no content yet
+            if role == .assistant && isLastMessage && status == .loading
+                && (content == nil || content?.isEmpty == true)
+            {
+                HStack {
+                    BlinkingDot()
+                        .padding(.leading, 12)
+                        .padding(.top, 10)
+                    Spacer()
+                }
             }
 
             // action buttons
@@ -155,6 +189,17 @@ struct OpenAIMessageRow: View {
                 }
 
                 if !isEditing {
+                    // Regenerate button for assistant messages
+                    if role == .assistant {
+                        Button(action: {
+                            onRegenerate?()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundStyle(Color.gray.opacity(1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     Button(action: {
                         #if canImport(UIKit)
                             UIPasteboard.general.string = content
@@ -237,8 +282,7 @@ struct OpenAIMessageRow: View {
                     .init(
                         content: "{\"temperature\": 72, \"condition\": \"sunny\"}",
                         toolCallId: "tool1"))
-            ]
-        )
+            ])
         OpenAIMessageRow(
             id: "1",
             message: .assistant(
@@ -251,8 +295,7 @@ struct OpenAIMessageRow: View {
                             function: .init(
                                 name: "GetWeather", arguments: "{\"location\": \"Los Angeles\"}"))
                     ], audio: nil)),
-            status: .loading
-        )
+            status: .loading)
     }
     .padding()
 }
