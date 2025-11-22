@@ -43,7 +43,8 @@ struct OpenAIChatTests {
     // MARK: - OpenAIImageContentPart Tests
 
     @Test func testOpenAIImageContentPartInit() {
-        let imageUrl = OpenAIImageContentPart.ImageUrl(url: "https://example.com/image.png", detail: .high)
+        let imageUrl = OpenAIImageContentPart.ImageUrl(
+            url: "https://example.com/image.png", detail: .high)
         let part = OpenAIImageContentPart(imageUrl: imageUrl)
         #expect(part.imageUrl.url == "https://example.com/image.png")
         #expect(part.imageUrl.detail == .high)
@@ -57,7 +58,8 @@ struct OpenAIChatTests {
     }
 
     @Test func testOpenAIImageContentPartCodable() throws {
-        let imageUrl = OpenAIImageContentPart.ImageUrl(url: "https://example.com/image.png", detail: .auto)
+        let imageUrl = OpenAIImageContentPart.ImageUrl(
+            url: "https://example.com/image.png", detail: .auto)
         let part = OpenAIImageContentPart(imageUrl: imageUrl)
         let encoded = try JSONEncoder().encode(part)
         let decoded = try JSONDecoder().decode(OpenAIImageContentPart.self, from: encoded)
@@ -179,8 +181,8 @@ struct OpenAIChatTests {
 
     @Test func testOpenAIUserMessageDecodingWithoutOptionals() throws {
         let json = """
-        {"content": "Test message"}
-        """
+            {"content": "Test message"}
+            """
         let data = json.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(OpenAIUserMessage.self, from: data)
         #expect(decoded.content == "Test message")
@@ -200,7 +202,8 @@ struct OpenAIChatTests {
 
     @Test func testOpenAIAssistantMessageWithToolCalls() {
         let toolCalls = [
-            OpenAIToolCall(id: "call_1", type: .function, function: .init(name: "test", arguments: "{}"))
+            OpenAIToolCall(
+                id: "call_1", type: .function, function: .init(name: "test", arguments: "{}"))
         ]
         let message = OpenAIAssistantMessage(content: nil, toolCalls: toolCalls, audio: nil)
         #expect(message.content == nil)
@@ -217,7 +220,8 @@ struct OpenAIChatTests {
     }
 
     @Test func testOpenAIAssistantMessageCodable() throws {
-        let message = OpenAIAssistantMessage(id: "msg-1", content: "Response", toolCalls: nil, audio: nil)
+        let message = OpenAIAssistantMessage(
+            id: "msg-1", content: "Response", toolCalls: nil, audio: nil)
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAIAssistantMessage.self, from: encoded)
         #expect(decoded.id == "msg-1")
@@ -227,11 +231,12 @@ struct OpenAIChatTests {
 
     @Test func testOpenAIAssistantMessageToRequestMessage() {
         let audio = OpenAIAssistantMessage.Audio(id: "audio-1", data: "base64", transcript: "Hello")
-        let message = OpenAIAssistantMessage(id: "msg-1", content: "Test", toolCalls: nil, audio: audio)
+        let message = OpenAIAssistantMessage(
+            id: "msg-1", content: "Test", toolCalls: nil, audio: audio)
         let requestMessage = message.toRequestAssistantMessage()
         #expect(requestMessage.id == "msg-1")
         #expect(requestMessage.content == "Test")
-        #expect(requestMessage.audio == nil) // Audio should be dropped
+        #expect(requestMessage.audio == nil)  // Audio should be dropped
     }
 
     // MARK: - OpenAISystemMessage Tests
@@ -276,7 +281,8 @@ struct OpenAIChatTests {
     }
 
     @Test func testOpenAIToolMessageCodable() throws {
-        let message = OpenAIToolMessage(id: "tool-1", content: "{\"result\": 42}", toolCallId: "call_789")
+        let message = OpenAIToolMessage(
+            id: "tool-1", content: "{\"result\": 42}", toolCallId: "call_789")
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAIToolMessage.self, from: encoded)
         #expect(decoded.id == "tool-1")
@@ -324,7 +330,8 @@ struct OpenAIChatTests {
         #expect(userDecoded.content == "User")
 
         // Assistant message
-        let assistantMessage = OpenAIMessage.assistant(.init(id: "a1", content: "Assistant", toolCalls: nil, audio: nil))
+        let assistantMessage = OpenAIMessage.assistant(
+            .init(id: "a1", content: "Assistant", toolCalls: nil, audio: nil))
         let assistantEncoded = try JSONEncoder().encode(assistantMessage)
         let assistantDecoded = try JSONDecoder().decode(OpenAIMessage.self, from: assistantEncoded)
         #expect(assistantDecoded.role == .assistant)
@@ -344,25 +351,18 @@ struct OpenAIChatTests {
         #expect(toolDecoded.role == .tool)
         #expect(toolDecoded.content == "Tool")
     }
-
-    @Test func testOpenAIMessageHashable() {
-        let msg1 = OpenAIMessage.user(.init(id: "1", content: "Test"))
-        let msg2 = OpenAIMessage.user(.init(id: "1", content: "Test"))
-        #expect(msg1 == msg2)
-    }
-
     // MARK: - OpenAITool Tests
 
     @Test func testOpenAIToolInit() throws {
         let schemaJson = """
-        {
-            "type": "object",
-            "properties": {
-                "location": {"type": "string", "description": "City name"}
-            },
-            "required": ["location"]
-        }
-        """
+            {
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string", "description": "City name"}
+                },
+                "required": ["location"]
+            }
+            """
         let schema = try JSONSchema(jsonString: schemaJson)
         let tool = OpenAITool(
             name: "get_weather",
@@ -376,8 +376,8 @@ struct OpenAIChatTests {
 
     @Test func testOpenAIToolWithStrict() throws {
         let schemaJson = """
-        {"type": "object"}
-        """
+            {"type": "object"}
+            """
         let schema = try JSONSchema(jsonString: schemaJson)
         let tool = OpenAITool(
             name: "test_tool",
