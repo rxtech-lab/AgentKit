@@ -49,38 +49,8 @@ struct MessageInputView: View {
         self._currentSource = currentSource
     }
 
-    @ViewBuilder
-    private func sendButton() -> some View {
-        Button(action: {
-            if status == .loading {
-                onCancel()
-            } else {
-                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    onSend(text)
-                }
-            }
-        }) {
-            if status == .loading {
-                Image(systemName: "square.fill")
-                    .foregroundStyle(.black)
-                    .font(.system(size: 14))
-                    .fontWeight(.black)
-                    .padding(10)
-            } else {
-                Image(systemName: "arrow.up")
-                    .foregroundStyle(.white)
-                    .font(.system(size: 14))
-                    .fontWeight(.black)
-                    .padding(10)
-            }
-        }
-        .disabled(
-            status == .idle && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-    }
-
-    @ViewBuilder
-    private func inputView() -> some View {
-        VStack(spacing: 0) {
+    var body: some View {
+        return VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 8) {
                 TextField("Message...", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -118,24 +88,36 @@ struct MessageInputView: View {
                 }
 
                 Spacer()
-                if #available(macOS 26.0, *) {
-                    sendButton()
-                        .buttonStyle(.glass)
-                        .buttonBorderShape(.circle)
-                        .fontWeight(.bold)
-                        .tint(status == .idle ? .black : .gray.opacity(0.2))
-                        .buttonBorderShape(.circle)
-                        .cornerRadius(999)
-                } else {
-                    sendButton()
-                        .buttonStyle(.plain)
-                        .buttonBorderShape(.circle)
-                        .fontWeight(.bold)
-                        .tint(.black)
-                        .buttonBorderShape(.circle)
-                        .background(status == .idle ? .black : .gray.opacity(0.2))
-                        .cornerRadius(999)
+                Button(action: {
+                    if status == .loading {
+                        onCancel()
+                    } else {
+                        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            onSend(text)
+                        }
+                    }
+                }) {
+                    if status == .loading {
+                        Image(systemName: "square.fill")
+                            .foregroundStyle(.black)
+                            .font(.system(size: 14))
+                            .fontWeight(.black)
+                            .padding(10)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .foregroundStyle(.white)
+                            .font(.system(size: 14))
+                            .fontWeight(.black)
+                            .padding(10)
+                    }
                 }
+                .buttonStyle(.plain)
+                .fontWeight(.bold)
+                .tint(.black)
+                .buttonBorderShape(.circle)
+                .background(status == .idle ? .black : .gray.opacity(0.2))
+                .cornerRadius(999)
+                .disabled(status == .idle && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .frame(minHeight: 80, maxHeight: 240)
@@ -143,25 +125,15 @@ struct MessageInputView: View {
         .clipped()
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
-    }
-
-    var body: some View {
-        if #available(macOS 26.0, *) {
-            inputView()
-                .glassEffect(in: .rect(cornerRadius: 16.0))
-                .padding()
-        } else {
-            inputView()
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.background)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(.gray, lineWidth: 0.2)
-                )
-                .padding()
-        }
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(.gray, lineWidth: 0.2)
+        )
+        .padding()
     }
 }
 
