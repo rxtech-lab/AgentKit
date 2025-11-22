@@ -10,10 +10,24 @@ public enum AgentResponsePart: Sendable {
 public actor AgentClient {
     public init() {}
 
+    private func processToolCall(
+        tool: any AgentToolProtocol,
+        toolCall: OpenAIToolCall
+    ) async throws -> String {
+        let argumentsString = toolCall.function?.arguments ?? "{}"
+        guard let data = argumentsString.data(using: .utf8) else {
+            throw ToolError.invalidArgsEncoding
+        }
+
+        let output = try await tool.invoke(argsData: data, originalArgs: argumentsString)
+        let outputData = try JSONEncoder().encode(output)
+        return String(data: outputData, encoding: .utf8) ?? ""
+    }
+
     public func process(
         messages: [Message],
         model: String,
-        tools: [AgentTool],
+        tools: [any AgentToolProtocol],
         source: Source
     ) -> AsyncThrowingStream<AgentResponsePart, Error> {
         return AsyncThrowingStream { continuation in
@@ -125,14 +139,30 @@ public actor AgentClient {
                                     group.addTask {
                                         guard let function = toolCall.function,
                                             let name = function.name,
-                                            let args = function.arguments,
+                                            function.arguments != nil,
                                             let id = toolCall.id
                                         else { return nil }
 
                                         if let tool = tools.first(where: { $0.name == name }) {
                                             do {
-                                                let result = try await tool.execute(args)
+                                                let result = try await self.processToolCall(
+                                                    tool: tool, toolCall: toolCall)
                                                 return .tool(.init(content: result, toolCallId: id))
+                                            } catch let error as ToolError {
+                                                switch error {
+                                                case .invalidToolArgs:
+                                                    return .tool(
+                                                        .init(
+                                                            content:
+                                                                "Error: \(error.localizedDescription). Please fix the arguments and try again.",
+                                                            toolCallId: id))
+                                                default:
+                                                    return .tool(
+                                                        .init(
+                                                            content:
+                                                                "Error: \(error.localizedDescription)",
+                                                            toolCallId: id))
+                                                }
                                             } catch {
                                                 return .tool(
                                                     .init(

@@ -90,7 +90,7 @@ struct AgentToolExtendedTests {
             name: "test_tool",
             description: "A test tool",
             parameters: schema
-        ) { args in
+        ) { (args: String) in
             return "Result: \(args)"
         }
 
