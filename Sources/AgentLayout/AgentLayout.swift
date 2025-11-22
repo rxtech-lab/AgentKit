@@ -59,7 +59,7 @@ public struct AgentLayout: View {
     let renderMessage: MessageRenderer?
     let onSend: ((String) -> Void)?
     let onMessage: ((Message) -> Void)?
-    let tools: [AgentTool<any Sendable, any Sendable>]
+    let tools: [any AgentToolProtocol]
 
     // MARK: - Private Methods
 
@@ -276,7 +276,7 @@ public struct AgentLayout: View {
         renderMessage: MessageRenderer? = nil,
         onSend: ((String) -> Void)? = nil,
         onMessage: ((Message) -> Void)? = nil,
-        tools: [AgentTool<any Sendable, any Sendable>] = []
+        tools: [any AgentToolProtocol] = []
     ) {
         self._chat = .init(initialValue: chat)
         self.initialChat = chat

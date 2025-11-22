@@ -20,7 +20,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Build and Test with Xcode
-        run: swift test --enable-code-coverage
+        run: swift test --enable-code-coverage --no-parallel
 
       - name: Generate Coverage Report
         run: |

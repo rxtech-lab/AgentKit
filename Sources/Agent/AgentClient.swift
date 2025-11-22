@@ -8,21 +8,6 @@ public enum AgentResponsePart: Sendable {
 }
 
 public actor AgentClient {
-    public enum ToolError: Error, LocalizedError {
-        case invalidToolArgs(toolName: String, args: String, underlyingError: Error)
-        case invalidArgsEncoding
-
-        public var errorDescription: String? {
-            switch self {
-            case .invalidToolArgs(let toolName, _, let underlyingError):
-                return
-                    "Invalid arguments for tool '\(toolName)': \(underlyingError.localizedDescription)"
-            case .invalidArgsEncoding:
-                return "Invalid arguments encoding"
-            }
-        }
-    }
-
     public init() {}
 
     private func processToolCall(
@@ -34,15 +19,9 @@ public actor AgentClient {
             throw ToolError.invalidArgsEncoding
         }
 
-        // Verify arguments can be decoded to the tool's input type
-        do {
-            _ = try JSONDecoder().decode(tool.inputType, from: data)
-        } catch {
-            throw ToolError.invalidToolArgs(
-                toolName: tool.name, args: argumentsString, underlyingError: error)
-        }
-
-        return try await tool.invoke(argumentsString)
+        let output = try await tool.invoke(argsData: data, originalArgs: argumentsString)
+        let outputData = try JSONEncoder().encode(output)
+        return String(data: outputData, encoding: .utf8) ?? ""
     }
 
     public func process(
