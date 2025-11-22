@@ -59,7 +59,7 @@ public struct AgentLayout: View {
     let renderMessage: MessageRenderer?
     let onSend: ((String) -> Void)?
     let onMessage: ((Message) -> Void)?
-    let tools: [AgentTool]
+    let tools: [AgentTool<any Sendable, any Sendable>]
 
     // MARK: - Private Methods
 
@@ -153,7 +153,7 @@ public struct AgentLayout: View {
                     case .message(let msg):
                         var shouldScroll = false
                         if case .openai(let openAIMsg) = msg,
-                           case .assistant = openAIMsg.role
+                            case .assistant = openAIMsg.role
                         {
                             if !isFirstChunk {
                                 // Update message by ID instead of index
@@ -235,7 +235,7 @@ public struct AgentLayout: View {
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
-               case .user(let userMsg) = openAIMsg
+                case .user(let userMsg) = openAIMsg
             {
                 userMessageContent = userMsg.content
                 break
@@ -260,7 +260,7 @@ public struct AgentLayout: View {
 
         // Emit onMessage callback with partial content
         if let msgId = currentStreamingMessageId,
-           let index = chat.messages.firstIndex(where: { $0.id == msgId })
+            let index = chat.messages.firstIndex(where: { $0.id == msgId })
         {
             onMessage?(chat.messages[index])
         }
@@ -276,7 +276,7 @@ public struct AgentLayout: View {
         renderMessage: MessageRenderer? = nil,
         onSend: ((String) -> Void)? = nil,
         onMessage: ((Message) -> Void)? = nil,
-        tools: [AgentTool] = []
+        tools: [AgentTool<any Sendable, any Sendable>] = []
     ) {
         self._chat = .init(initialValue: chat)
         self.initialChat = chat
@@ -342,11 +342,14 @@ public struct AgentLayout: View {
                                         isLastMessage: message.id == chat.messages.last?.id,
                                         onDelete: {
                                             withAnimation(.easeInOut(duration: 0.3)) {
-                                                chat.messages.removeAll(where: { $0.id == message.id })
+                                                chat.messages.removeAll(where: {
+                                                    $0.id == message.id
+                                                })
                                             }
                                         },
                                         onEdit: { newContent in
-                                            handleEdit(messageId: message.id, newContent: newContent)
+                                            handleEdit(
+                                                messageId: message.id, newContent: newContent)
                                         },
                                         onRegenerate: {
                                             handleRegenerate(messageId: message.id)
@@ -396,8 +399,36 @@ public struct AgentLayout: View {
             }
 
             VStack {
-                ScrollToBottomButton(isAtBottom: isAtBottom) {
-                    scrollToBottom()
+                // Scroll to bottom button
+                if !isAtBottom {
+                    if #available(macOS 26.0, *) {
+                        Button(action: {
+                            withAnimation {
+                                scrollToBottom()
+                            }
+                        }) {
+                            Label("Scroll to button", systemImage: "arrow.down")
+                        }
+                        .padding()
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.capsule)
+                        .transition(.opacity.combined(with: .scale))
+                        .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+
+                    } else {
+                        Button(action: {
+                            withAnimation {
+                                scrollToBottom()
+                            }
+                        }) {
+                            Label("Scroll to button", systemImage: "arrow.down")
+                        }
+                        .padding()
+                        .buttonStyle(.plain)
+                        .buttonBorderShape(.capsule)
+                        .transition(.opacity.combined(with: .scale))
+                        .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+                    }
                 }
 
                 MessageInputView(
