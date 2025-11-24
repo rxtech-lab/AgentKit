@@ -36,6 +36,8 @@ struct ViewHeightKey: PreferenceKey {
 }
 
 public struct AgentLayout: View {
+    public static let REJECT_MESSAGE = "User cancelled this tool call"
+
     @State var chat: Chat
 
     private let initialChat: Chat
@@ -62,6 +64,76 @@ public struct AgentLayout: View {
     let tools: [any AgentToolProtocol]
 
     // MARK: - Private Methods
+
+    private var isWaitingForToolResult: Bool {
+        // Find last assistant message with tools
+        guard
+            let lastAssistantIndex = chat.messages.lastIndex(where: {
+                if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
+                   !tc.isEmpty
+                {
+                    return true
+                }
+                return false
+            })
+        else {
+            return false
+        }
+
+        let assistantMsg = chat.messages[lastAssistantIndex]
+        guard case .openai(let m) = assistantMsg, case .assistant(let a) = m,
+              let toolCalls = a.toolCalls
+        else { return false }
+
+        let toolCallIds = Set(toolCalls.compactMap { $0.id })
+
+        // Check subsequent messages for resolution
+        var resolvedIds = Set<String>()
+        for i in (lastAssistantIndex + 1)..<chat.messages.count {
+            if case .openai(let m) = chat.messages[i], case .tool(let t) = m {
+                resolvedIds.insert(t.toolCallId)
+            }
+        }
+
+        return !toolCallIds.isSubset(of: resolvedIds)
+    }
+
+    private func getToolStatus(for message: Message, in messages: [Message]) -> ToolStatus {
+        guard case .openai(let openAIMessage) = message,
+              case .assistant(let assistantMessage) = openAIMessage,
+              let toolCalls = assistantMessage.toolCalls,
+              !toolCalls.isEmpty
+        else {
+            return .completed
+        }
+
+        let toolCallIds = Set(toolCalls.compactMap { $0.id })
+        var resolvedIds = Set<String>()
+        var rejected = false
+
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else {
+            return .waitingForResult
+        }
+
+        for j in (index + 1)..<messages.count {
+            if case .openai(let nextMsg) = messages[j],
+               case .tool(let toolMsg) = nextMsg
+            {
+                if toolCallIds.contains(toolMsg.toolCallId) {
+                    resolvedIds.insert(toolMsg.toolCallId)
+                    if toolMsg.content == Self.REJECT_MESSAGE {
+                        rejected = true
+                    }
+                }
+            }
+        }
+
+        if toolCallIds.isSubset(of: resolvedIds) {
+            return rejected ? .rejected : .completed
+        } else {
+            return .waitingForResult
+        }
+    }
 
     private func scrollToBottom() {
         guard let lastMessage = chat.messages.last else { return }
@@ -153,7 +225,7 @@ public struct AgentLayout: View {
                     case .message(let msg):
                         var shouldScroll = false
                         if case .openai(let openAIMsg) = msg,
-                            case .assistant = openAIMsg.role
+                           case .assistant = openAIMsg.role
                         {
                             if !isFirstChunk {
                                 // Update message by ID instead of index
@@ -235,7 +307,7 @@ public struct AgentLayout: View {
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
-                case .user(let userMsg) = openAIMsg
+               case .user(let userMsg) = openAIMsg
             {
                 userMessageContent = userMsg.content
                 break
@@ -254,17 +326,57 @@ public struct AgentLayout: View {
     }
 
     private func handleCancel() {
-        generationTask?.cancel()
-        generationTask = nil
-        status = .idle
+        if let task = generationTask {
+            task.cancel()
+            generationTask = nil
+            status = .idle
 
-        // Emit onMessage callback with partial content
-        if let msgId = currentStreamingMessageId,
-            let index = chat.messages.firstIndex(where: { $0.id == msgId })
-        {
-            onMessage?(chat.messages[index])
+            // Emit onMessage callback with partial content
+            if let msgId = currentStreamingMessageId,
+               let index = chat.messages.firstIndex(where: { $0.id == msgId })
+            {
+                onMessage?(chat.messages[index])
+
+                // Append "Cancelled" user message
+                let userCancelMsg = Message.openai(.user(.init(content: "Cancelled")))
+                chat.messages.append(userCancelMsg)
+            }
+            currentStreamingMessageId = nil
+        } else if isWaitingForToolResult {
+            // User cancelled tool call
+            if let lastAssistantIndex = chat.messages.lastIndex(where: {
+                if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
+                   !tc.isEmpty
+                {
+                    return true
+                }
+                return false
+            }) {
+                let assistantMsg = chat.messages[lastAssistantIndex]
+                if case .openai(let m) = assistantMsg, case .assistant(let a) = m,
+                   let toolCalls = a.toolCalls
+                {
+                    for toolCall in toolCalls {
+                        let alreadyResolved = chat.messages.contains { msg in
+                            if case .openai(let m) = msg, case .tool(let t) = m {
+                                return t.toolCallId == toolCall.id
+                            }
+                            return false
+                        }
+
+                        if !alreadyResolved, let id = toolCall.id {
+                            let toolMsg = Message.openai(
+                                .tool(.init(content: Self.REJECT_MESSAGE, toolCallId: id)))
+                            chat.messages.append(toolMsg)
+
+                            Task {
+                                try? await chatProvider?.rejectFunction(id: id)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        currentStreamingMessageId = nil
     }
 
     public init(
@@ -299,7 +411,8 @@ public struct AgentLayout: View {
                             ForEach(chat.messages) { message in
                                 if let renderMessage = renderMessage {
                                     let (view, action) = renderMessage(
-                                        message, chat.messages, chatProvider
+                                        message, chat.messages, chatProvider,
+                                        getToolStatus(for: message, in: chat.messages)
                                     )
                                     switch action {
                                     case .replace:
@@ -331,7 +444,29 @@ public struct AgentLayout: View {
                                         .id(message.id)
                                         view
                                     case .skip:
-                                        EmptyView()
+                                        MessageRow(
+                                            id: message.id,
+                                            message: message,
+                                            messages: chat.messages,
+                                            status: status,
+                                            isLastMessage: message.id == chat.messages.last?.id,
+                                            onDelete: {
+                                                withAnimation(.easeInOut(duration: 0.3)) {
+                                                    chat.messages.removeAll(where: {
+                                                        $0.id == message.id
+                                                    })
+                                                }
+                                            },
+                                            onEdit: { newContent in
+                                                handleEdit(
+                                                    messageId: message.id, newContent: newContent
+                                                )
+                                            },
+                                            onRegenerate: {
+                                                handleRegenerate(messageId: message.id)
+                                            }
+                                        )
+                                        .id(message.id)
                                     }
                                 } else {
                                     MessageRow(
@@ -349,7 +484,8 @@ public struct AgentLayout: View {
                                         },
                                         onEdit: { newContent in
                                             handleEdit(
-                                                messageId: message.id, newContent: newContent)
+                                                messageId: message.id, newContent: newContent
+                                            )
                                         },
                                         onRegenerate: {
                                             handleRegenerate(messageId: message.id)
@@ -433,7 +569,7 @@ public struct AgentLayout: View {
 
                 MessageInputView(
                     text: $newMessage,
-                    status: status,
+                    status: isWaitingForToolResult ? .loading : status,
                     currentModel: $currentModel,
                     currentSource: $currentSource,
                     sources: sources,

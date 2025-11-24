@@ -133,56 +133,77 @@ public actor AgentClient {
                         if finalToolCalls.isEmpty {
                             keepGoing = false
                         } else {
-                            // Parallel execution
-                            await withTaskGroup(of: OpenAIMessage?.self) { group in
-                                for toolCall in finalToolCalls {
-                                    group.addTask {
-                                        guard let function = toolCall.function,
-                                            let name = function.name,
-                                            function.arguments != nil,
-                                            let id = toolCall.id
-                                        else { return nil }
+                            // Check for UI tools
+                            let hasUITool = finalToolCalls.contains { call in
+                                guard let name = call.function?.name else { return false }
+                                return tools.contains { $0.name == name && $0.toolType == .ui }
+                            }
 
-                                        if let tool = tools.first(where: { $0.name == name }) {
-                                            do {
-                                                let result = try await self.processToolCall(
-                                                    tool: tool, toolCall: toolCall)
-                                                return .tool(.init(content: result, toolCallId: id))
-                                            } catch let error as ToolError {
-                                                switch error {
-                                                case .invalidToolArgs:
+                            // Determine which tools to execute automatically
+                            let toolsToExecute: [OpenAIToolCall]
+                            if hasUITool {
+                                keepGoing = false
+                                toolsToExecute = finalToolCalls.filter { call in
+                                    guard let name = call.function?.name else { return true }
+                                    return !tools.contains { $0.name == name && $0.toolType == .ui }
+                                }
+                            } else {
+                                toolsToExecute = finalToolCalls
+                            }
+
+                            if !toolsToExecute.isEmpty {
+                                // Parallel execution
+                                await withTaskGroup(of: OpenAIMessage?.self) { group in
+                                    for toolCall in toolsToExecute {
+                                        group.addTask {
+                                            guard let function = toolCall.function,
+                                                let name = function.name,
+                                                function.arguments != nil,
+                                                let id = toolCall.id
+                                            else { return nil }
+
+                                            if let tool = tools.first(where: { $0.name == name }) {
+                                                do {
+                                                    let result = try await self.processToolCall(
+                                                        tool: tool, toolCall: toolCall)
                                                     return .tool(
-                                                        .init(
-                                                            content:
-                                                                "Error: \(error.localizedDescription). Please fix the arguments and try again.",
-                                                            toolCallId: id))
-                                                default:
+                                                        .init(content: result, toolCallId: id))
+                                                } catch let error as ToolError {
+                                                    switch error {
+                                                    case .invalidToolArgs:
+                                                        return .tool(
+                                                            .init(
+                                                                content:
+                                                                    "Error: \(error.localizedDescription). Please fix the arguments and try again.",
+                                                                toolCallId: id))
+                                                    default:
+                                                        return .tool(
+                                                            .init(
+                                                                content:
+                                                                    "Error: \(error.localizedDescription)",
+                                                                toolCallId: id))
+                                                    }
+                                                } catch {
                                                     return .tool(
                                                         .init(
                                                             content:
                                                                 "Error: \(error.localizedDescription)",
                                                             toolCallId: id))
                                                 }
-                                            } catch {
+                                            } else {
                                                 return .tool(
                                                     .init(
-                                                        content:
-                                                            "Error: \(error.localizedDescription)",
+                                                        content: "Tool \(name) not found.",
                                                         toolCallId: id))
                                             }
-                                        } else {
-                                            return .tool(
-                                                .init(
-                                                    content: "Tool \(name) not found.",
-                                                    toolCallId: id))
                                         }
                                     }
-                                }
 
-                                for await result in group {
-                                    if let msg = result {
-                                        currentMessages.append(msg)
-                                        continuation.yield(.message(.openai(msg)))
+                                    for await result in group {
+                                        if let msg = result {
+                                            currentMessages.append(msg)
+                                            continuation.yield(.message(.openai(msg)))
+                                        }
                                     }
                                 }
                             }

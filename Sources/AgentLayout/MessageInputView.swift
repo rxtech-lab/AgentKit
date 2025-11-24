@@ -6,9 +6,9 @@
 //
 
 import Agent
-import SwiftfulLoadingIndicators
 import SwiftUI
 import SwiftUIIntrospect
+import SwiftfulLoadingIndicators
 
 // Define placeholder enum if OpenAICompatibleModel is not available at compile time
 #if !PREVIEW
@@ -84,7 +84,8 @@ struct MessageInputView: View {
             HStack(alignment: .top, spacing: 8) {
                 TextField("Message...", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .lineLimit(1 ... 6)
+                    .disabled(status == .loading)
+                    .lineLimit(1...6)
                     .onKeyPress { press in
                         guard press.key == .return else { return .ignored }
                         if press.modifiers.contains(.shift) {
@@ -107,7 +108,7 @@ struct MessageInputView: View {
                     Text(currentModel.displayName)
                 }
                 #if os(macOS)
-                .buttonStyle(.accessoryBar)
+                    .buttonStyle(.accessoryBar)
                 #endif
                 .popover(isPresented: $showModelPicker) {
                     ModelPicker(
@@ -167,21 +168,21 @@ struct MessageInputView: View {
 
 #Preview {
     @Previewable @State var text = """
-    This is
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    very
-    long text
-    """
+        This is
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        very
+        long text
+        """
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt-4o"))
     @Previewable @State var currentSource: Source = .init(
         displayName: "OpenAI",
@@ -207,7 +208,7 @@ struct MessageInputView: View {
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
                 ]
-            ),
+            )
         ],
         onSend: { _ in }
     )
@@ -225,7 +226,7 @@ struct MessageInputView: View {
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
                 ]
-            ),
+            )
         ],
         onSend: { _ in },
         onCancel: {}
@@ -243,7 +244,7 @@ struct MessageInputView: View {
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
                 ]
-            ),
+            )
         ],
         onSend: { _ in },
         onCancel: {}

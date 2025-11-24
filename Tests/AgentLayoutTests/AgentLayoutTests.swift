@@ -7,16 +7,26 @@ import XCTest
 @testable import Agent
 @testable import AgentLayout
 
-extension AgentLayout: Inspectable {}
-extension MessageRow: Inspectable {}
-extension MessageInputView: Inspectable {}
-extension OpenAIMessageRow: Inspectable {}
+extension AgentLayout {}
+extension MessageRow {}
+extension MessageInputView {}
+extension OpenAIMessageRow {}
 
 struct MockChatProvider: ChatProvider {
     let onSend: (@Sendable (String, Model) -> Void)?
+    let onSendResult: (@Sendable (String, any Encodable) -> Void)?
+    let onReject: (@Sendable (String) -> Void)?
 
     func sendMessage(message: String, model: Model) async throws {
         onSend?(message, model)
+    }
+    
+    func sendFunctionResult(id: String, result: any Encodable) async throws {
+        onSendResult?(id, result)
+    }
+    
+    func rejectFunction(id: String) async throws {
+        onReject?(id)
     }
 }
 
@@ -92,7 +102,7 @@ class MockOpenAIChatController {
     let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
     
     let customContent = "Custom Replacement"
-    let renderer: MessageRenderer = { _, _, _ in
+    let renderer: MessageRenderer = { _, _, _, _ in
         (AnyView(Text(customContent)), .replace)
     }
     
@@ -128,7 +138,7 @@ class MockOpenAIChatController {
     let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
     
     let customContent = "Custom Append"
-    let renderer: MessageRenderer = { _, _, _ in
+    let renderer: MessageRenderer = { _, _, _, _ in
         (AnyView(Text(customContent)), .append)
     }
     
@@ -157,7 +167,7 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
     
-    let renderer: MessageRenderer = { _, _, _ in
+    let renderer: MessageRenderer = { _, _, _, _ in
         (AnyView(EmptyView()), .skip)
     }
     
@@ -248,7 +258,8 @@ class MockOpenAIChatController {
 
     // Verify view can be inspected (callback properly wired)
     let view = try sut.inspect()
-    #expect(view != nil)
+    // Check something valid instead of nil check, e.g. body exists
+    _ = try view.find(MessageInputView.self)
 }
 
 @MainActor
@@ -307,7 +318,7 @@ class MockOpenAIChatController {
     ViewHosting.host(view: sut)
 
     let view = try sut.inspect()
-    #expect(view != nil)
+    _ = try view.find(MessageInputView.self)
 }
 
 @MainActor
@@ -337,7 +348,7 @@ class MockOpenAIChatController {
     let view = try sut.inspect()
 
     // Find the first MessageRow (user message)
-    let messageRows = try view.findAll(MessageRow.self)
+    let messageRows = view.findAll(MessageRow.self)
     #expect(messageRows.count == 2, "Expected 2 message rows")
 
     // Get the user message row and trigger edit
@@ -376,7 +387,7 @@ class MockOpenAIChatController {
     let view = try sut.inspect()
 
     // Find the MessageRows
-    let messageRows = try view.findAll(MessageRow.self)
+    let messageRows = view.findAll(MessageRow.self)
     #expect(messageRows.count == 2, "Expected 2 message rows")
 
     // Get the assistant message row (second one) and trigger regenerate
@@ -416,7 +427,7 @@ class MockOpenAIChatController {
     let view = try sut.inspect()
 
     // Verify initial state has 4 messages
-    let initialMessageRows = try view.findAll(MessageRow.self)
+    let initialMessageRows = view.findAll(MessageRow.self)
     #expect(initialMessageRows.count == 4, "Expected 4 message rows initially")
 
     // Edit the first user message
@@ -457,7 +468,7 @@ class MockOpenAIChatController {
     let view = try sut.inspect()
 
     // Find the MessageRows
-    let messageRows = try view.findAll(MessageRow.self)
+    let messageRows = view.findAll(MessageRow.self)
     #expect(messageRows.count == 4, "Expected 4 message rows")
 
     // Regenerate the second assistant message (last one)
@@ -495,7 +506,7 @@ class MockOpenAIChatController {
     let view = try sut.inspect()
 
     // Find the assistant message row and trigger regenerate
-    let messageRows = try view.findAll(MessageRow.self)
+    let messageRows = view.findAll(MessageRow.self)
     let assistantRow = messageRows[1]
     try assistantRow.actualView().onRegenerate?()
 
@@ -558,6 +569,86 @@ class MockOpenAIChatController {
     #expect(sendCount >= 1, "Expected at least 1 send callback")
 }
 
+@MainActor
+@Test func testToolStatusRendering() async throws {
+    let toolCallId = "call_1"
+    let assistantMessage = Message.openai(.assistant(.init(
+        content: nil,
+        toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
+        audio: nil
+    )))
+    
+    let toolMessage = Message.openai(.tool(.init(content: "Result", toolCallId: toolCallId)))
+    
+    let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
+    let model = Model.openAI(.init(id: "gpt-4"))
+    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    
+    var capturedStatus: ToolStatus?
+    
+    let renderer: MessageRenderer = { msg, _, _, status in
+        if case .openai(let m) = msg, case .assistant = m {
+            capturedStatus = status
+        }
+        return (AnyView(EmptyView()), .replace)
+    }
+    
+    let sut = AgentLayout(
+        chat: chat,
+        currentModel: .constant(model),
+        currentSource: .constant(source),
+        sources: [source],
+        renderMessage: renderer
+    )
+    
+    ViewHosting.host(view: sut)
+    let view = try sut.inspect()
+    
+    // Verify status is completed
+    _ = try view.find(ViewType.EmptyView.self) // Trigger render
+    
+    #expect(capturedStatus == .completed)
+}
+
+@MainActor
+@Test func testToolStatusWaiting() async throws {
+    let toolCallId = "call_1"
+    let assistantMessage = Message.openai(.assistant(.init(
+        content: nil,
+        toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
+        audio: nil
+    )))
+    
+    let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage])
+    let model = Model.openAI(.init(id: "gpt-4"))
+    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    
+    var capturedStatus: ToolStatus?
+    
+    let renderer: MessageRenderer = { msg, _, _, status in
+        if case .openai(let m) = msg, case .assistant = m {
+            capturedStatus = status
+        }
+        return (AnyView(EmptyView()), .replace)
+    }
+    
+    let sut = AgentLayout(
+        chat: chat,
+        currentModel: .constant(model),
+        currentSource: .constant(source),
+        sources: [source],
+        renderMessage: renderer
+    )
+    
+    ViewHosting.host(view: sut)
+    let view = try sut.inspect()
+    
+    // Verify status is waiting
+    _ = try view.find(ViewType.EmptyView.self) // Trigger render
+    
+    #expect(capturedStatus == .waitingForResult)
+}
+
 // XCTest-based integration test for multi-turn conversation
 final class AgentLayoutIntegrationTests: XCTestCase {
     var app: Application!
@@ -577,6 +668,51 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         try await app.asyncShutdown()
         app = nil
         controller = nil
+    }
+    
+    @MainActor
+    func testUIToolWaitAndCancel() async throws {
+        // Test that UI tool calls pause execution and can be cancelled
+        let toolCallId = "call_123"
+        let assistantMsg = OpenAIAssistantMessage(
+            content: nil,
+            toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "ui_tool", arguments: "{}"))],
+            audio: nil
+        )
+        let assistantMessage = Message.openai(.assistant(assistantMsg))
+        let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+        
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source]
+        )
+        
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+        
+        // 1. Verify input is disabled (due to waiting for tool result)
+        let inputView = try view.find(MessageInputView.self)
+        let inputViewStatus = try inputView.actualView().status
+        XCTAssertEqual(inputViewStatus, .loading, "Input view should be in loading state when waiting for tool result")
+        
+        // 2. Click stop/cancel button
+        try inputView.actualView().onCancel()
+        
+        // 3. Verify rejection message appended is not easily possible directly without re-inspecting or checking state
+        // But since handleCancel logic is tested, we can assume it works if the button is wired.
+        
+        // Re-inspect to check for cancellation message
+        let updatedView = try sut.inspect()
+        
+        // Check if chat.messages has the rejection message
+        // Since we can't access state directly easily, we can check if the message count increased or specific content exists
+        // However, finding specific content in the view hierarchy is easier
+        // The rejection message content is "User cancelled this tool call"
+        _ = try updatedView.find(text: "User cancelled this tool call")
     }
 
     @MainActor
@@ -802,6 +938,97 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         } else {
             XCTFail("Expected assistant message")
         }
+    }
+
+    @MainActor
+    func testCancelSendingSendsMessage() async throws {
+        // Test #2: When user sends message, and in sending mode, user click stop button, should sends cancelled message
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source(
+            displayName: "Test",
+            endpoint: "http://localhost:8127",
+            apiKey: "test",
+            apiType: .openAI,
+            models: [model]
+        )
+
+        // Queue a response that will be streamed (simulate delay/streaming)
+        let assistantMsg = OpenAIAssistantMessage(
+            content: "Partial response",
+            toolCalls: nil,
+            audio: nil
+        )
+        controller.mockChatResponse([assistantMsg])
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Send a message to start generation
+        let inputView = try view.find(MessageInputView.self)
+        try inputView.actualView().onSend("User message")
+
+        // Wait briefly for streaming to start
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Cancel the generation
+        try inputView.actualView().onCancel()
+
+        // Re-inspect to check for cancellation message
+        let updatedView = try sut.inspect()
+        
+        // Check for "Cancelled" user message
+        _ = try updatedView.find(text: "Cancelled")
+    }
+
+    @MainActor
+    func testToolStatusRejected() async throws {
+        // Test #4: Any tool call with tool result, callback should pass status completed or rejected depends on the tool result content.
+        let toolCallId = "call_rejected"
+        let assistantMessage = Message.openai(.assistant(.init(
+            content: nil,
+            toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
+            audio: nil
+        )))
+        
+        // Create a rejection tool message
+        let toolMessage = Message.openai(.tool(.init(content: AgentLayout.REJECT_MESSAGE, toolCallId: toolCallId)))
+        
+        let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+        
+        var capturedStatus: ToolStatus?
+        
+        let renderer: MessageRenderer = { msg, _, _, status in
+            if case .openai(let m) = msg, case .assistant = m {
+                capturedStatus = status
+            }
+            return (AnyView(EmptyView()), .replace)
+        }
+        
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            renderMessage: renderer
+        )
+        
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+        
+        // Trigger render
+        _ = try view.find(ViewType.EmptyView.self)
+        
+        #expect(capturedStatus == .rejected)
     }
 
 }
