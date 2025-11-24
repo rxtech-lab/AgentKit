@@ -70,7 +70,7 @@ public struct AgentLayout: View {
         guard
             let lastAssistantIndex = chat.messages.lastIndex(where: {
                 if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
-                   !tc.isEmpty
+                    !tc.isEmpty
                 {
                     return true
                 }
@@ -82,7 +82,7 @@ public struct AgentLayout: View {
 
         let assistantMsg = chat.messages[lastAssistantIndex]
         guard case .openai(let m) = assistantMsg, case .assistant(let a) = m,
-              let toolCalls = a.toolCalls
+            let toolCalls = a.toolCalls
         else { return false }
 
         let toolCallIds = Set(toolCalls.compactMap { $0.id })
@@ -100,9 +100,9 @@ public struct AgentLayout: View {
 
     private func getToolStatus(for message: Message, in messages: [Message]) -> ToolStatus {
         guard case .openai(let openAIMessage) = message,
-              case .assistant(let assistantMessage) = openAIMessage,
-              let toolCalls = assistantMessage.toolCalls,
-              !toolCalls.isEmpty
+            case .assistant(let assistantMessage) = openAIMessage,
+            let toolCalls = assistantMessage.toolCalls,
+            !toolCalls.isEmpty
         else {
             return .completed
         }
@@ -117,7 +117,7 @@ public struct AgentLayout: View {
 
         for j in (index + 1)..<messages.count {
             if case .openai(let nextMsg) = messages[j],
-               case .tool(let toolMsg) = nextMsg
+                case .tool(let toolMsg) = nextMsg
             {
                 if toolCallIds.contains(toolMsg.toolCallId) {
                     resolvedIds.insert(toolMsg.toolCallId)
@@ -225,7 +225,7 @@ public struct AgentLayout: View {
                     case .message(let msg):
                         var shouldScroll = false
                         if case .openai(let openAIMsg) = msg,
-                           case .assistant = openAIMsg.role
+                            case .assistant = openAIMsg.role
                         {
                             if !isFirstChunk {
                                 // Update message by ID instead of index
@@ -307,7 +307,7 @@ public struct AgentLayout: View {
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
-               case .user(let userMsg) = openAIMsg
+                case .user(let userMsg) = openAIMsg
             {
                 userMessageContent = userMsg.content
                 break
@@ -333,7 +333,7 @@ public struct AgentLayout: View {
 
             // Emit onMessage callback with partial content
             if let msgId = currentStreamingMessageId,
-               let index = chat.messages.firstIndex(where: { $0.id == msgId })
+                let index = chat.messages.firstIndex(where: { $0.id == msgId })
             {
                 onMessage?(chat.messages[index])
 
@@ -346,7 +346,7 @@ public struct AgentLayout: View {
             // User cancelled tool call
             if let lastAssistantIndex = chat.messages.lastIndex(where: {
                 if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
-                   !tc.isEmpty
+                    !tc.isEmpty
                 {
                     return true
                 }
@@ -354,7 +354,7 @@ public struct AgentLayout: View {
             }) {
                 let assistantMsg = chat.messages[lastAssistantIndex]
                 if case .openai(let m) = assistantMsg, case .assistant(let a) = m,
-                   let toolCalls = a.toolCalls
+                    let toolCalls = a.toolCalls
                 {
                     for toolCall in toolCalls {
                         let alreadyResolved = chat.messages.contains { msg in
@@ -408,7 +408,16 @@ public struct AgentLayout: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 5) {
-                            ForEach(chat.messages) { message in
+                            ForEach(
+                                chat.messages.filter { message in
+                                    if case .openai(let openAIMessage) = message,
+                                        case .tool = openAIMessage.role
+                                    {
+                                        return false
+                                    }
+                                    return true
+                                }
+                            ) { message in
                                 if let renderMessage = renderMessage {
                                     let (view, action) = renderMessage(
                                         message, chat.messages, chatProvider,

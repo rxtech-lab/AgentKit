@@ -30,13 +30,13 @@ struct AdditionalOpenAIMessageRowTests {
             )
         ]
         let message = OpenAIMessage.assistant(
-            .init(content: "I'll check", toolCalls: toolCalls, audio: nil)
+            .init(content: "I'll check", toolCalls: toolCalls, audio: nil, reasoning: nil)
         )
         let row = OpenAIMessageRow(
             id: "1",
             message: message,
             messages: [
-                .tool(.init(content: "Result", toolCallId: "call_1"))
+                .tool(.init(content: "Result", toolCallId: "call_1", name: "get_weather"))
             ],
             status: .idle
         )
@@ -47,7 +47,7 @@ struct AdditionalOpenAIMessageRowTests {
 
     @Test func testAssistantMessageLoadingState() throws {
         let message = OpenAIMessage.assistant(
-            .init(content: nil, toolCalls: nil, audio: nil)
+            .init(content: nil, toolCalls: nil, audio: nil, reasoning: nil)
         )
         let row = OpenAIMessageRow(
             id: "1",
@@ -82,7 +82,7 @@ struct AdditionalOpenAIMessageRowTests {
 
     @Test func testMessageWithEmptyContent() throws {
         let message = OpenAIMessage.assistant(
-            .init(content: "", toolCalls: nil, audio: nil)
+            .init(content: "", toolCalls: nil, audio: nil, reasoning: nil)
         )
         let row = OpenAIMessageRow(id: "1", message: message)
         let view = try row.inspect()
@@ -103,14 +103,14 @@ struct AdditionalOpenAIMessageRowTests {
             )
         ]
         let message = OpenAIMessage.assistant(
-            .init(content: "Calling tools", toolCalls: toolCalls, audio: nil)
+            .init(content: "Calling tools", toolCalls: toolCalls, audio: nil, reasoning: nil)
         )
         let row = OpenAIMessageRow(
             id: "1",
             message: message,
             messages: [
-                .tool(.init(content: "Result1", toolCallId: "call_1")),
-                .tool(.init(content: "Result2", toolCallId: "call_2"))
+                .tool(.init(content: "Result1", toolCallId: "call_1", name: "tool1")),
+                .tool(.init(content: "Result2", toolCallId: "call_2", name: "tool2"))
             ]
         )
 
@@ -196,7 +196,7 @@ struct AdditionalOpenAIToolMessageRowTests {
             function: .init(name: "test_tool", arguments: "{\"param\": \"value\"}")
         )
         let messages: [OpenAIMessage] = [
-            .tool(.init(content: "{\"result\": \"success\"}", toolCallId: "call_123"))
+            .tool(.init(content: "{\"result\": \"success\"}", toolCallId: "call_123", name: "test_tool"))
         ]
 
         let row = OpenAIToolMessageRow(
@@ -271,8 +271,8 @@ struct AdditionalOpenAIToolMessageRowTests {
         )
         let messages: [OpenAIMessage] = [
             .user(.init(content: "user message")),
-            .tool(.init(content: "tool result", toolCallId: "call_test")),
-            .assistant(.init(content: "assistant", toolCalls: nil, audio: nil))
+            .tool(.init(content: "tool result", toolCallId: "call_test", name: "test")),
+            .assistant(.init(content: "assistant", toolCalls: nil, audio: nil, reasoning: nil))
         ]
 
         // Create row and check that it can find the tool response
@@ -408,7 +408,7 @@ struct AdditionalOpenAIChatTypeTests {
 
     @Test func testOpenAIMessageWithNilContent() {
         let message = OpenAIMessage.assistant(
-            .init(content: nil, toolCalls: nil, audio: nil)
+            .init(content: nil, toolCalls: nil, audio: nil, reasoning: nil)
         )
         #expect(message.content == nil)
     }
@@ -439,7 +439,7 @@ struct BlinkingDotTests {
         // BlinkingDot is an internal component used in OpenAIMessageRow
         // Testing that the loading state properly shows the blinking dot
         let message = OpenAIMessage.assistant(
-            .init(content: "", toolCalls: nil, audio: nil)
+            .init(content: "", toolCalls: nil, audio: nil, reasoning: nil)
         )
         let row = OpenAIMessageRow(
             id: "1",

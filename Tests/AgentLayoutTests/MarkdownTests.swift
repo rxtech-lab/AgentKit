@@ -67,7 +67,7 @@ struct MessageRowExtendedTests {
     }
 
     @Test func testMessageRowWithAssistantMessage() throws {
-        let message = Message.openai(.assistant(.init(content: "Response", toolCalls: nil, audio: nil)))
+        let message = Message.openai(.assistant(.init(content: "Response", toolCalls: nil, audio: nil, reasoning: nil)))
         let row = MessageRow(id: "2", message: message)
 
         let view = try row.inspect()
@@ -113,7 +113,7 @@ struct OpenAIMessageComprehensiveTests {
         #expect(user.role == .user)
 
         // Assistant
-        let assistant = OpenAIMessage.assistant(.init(content: "Assistant", toolCalls: nil, audio: nil))
+        let assistant = OpenAIMessage.assistant(.init(content: "Assistant", toolCalls: nil, audio: nil, reasoning: nil))
         #expect(assistant.role == .assistant)
 
         // System
@@ -121,7 +121,7 @@ struct OpenAIMessageComprehensiveTests {
         #expect(system.role == .system)
 
         // Tool
-        let tool = OpenAIMessage.tool(.init(content: "Tool", toolCallId: "id"))
+        let tool = OpenAIMessage.tool(.init(content: "Tool", toolCallId: "id", name: "tool_name"))
         #expect(tool.role == .tool)
     }
 

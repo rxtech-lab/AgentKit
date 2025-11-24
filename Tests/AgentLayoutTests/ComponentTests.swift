@@ -291,7 +291,7 @@ struct OpenAIToolMessageRowTests {
             function: .init(name: "get_weather", arguments: "{\"location\": \"NYC\"}")
         )
         let messages: [OpenAIMessage] = [
-            .tool(.init(content: "{\"temp\": 72}", toolCallId: "call_123"))
+            .tool(.init(content: "{\"temp\": 72}", toolCallId: "call_123", name: "get_weather"))
         ]
 
         let row = OpenAIToolMessageRow(
@@ -633,13 +633,13 @@ struct OpenAIMessageExtendedTests {
         let userMessage = OpenAIMessage.user(.init(content: "Hello"))
         #expect(userMessage.content == "Hello")
 
-        let assistantMessage = OpenAIMessage.assistant(.init(content: "Hi", toolCalls: nil, audio: nil))
+        let assistantMessage = OpenAIMessage.assistant(.init(content: "Hi", toolCalls: nil, audio: nil, reasoning: nil))
         #expect(assistantMessage.content == "Hi")
 
         let systemMessage = OpenAIMessage.system(.init(content: "System"))
         #expect(systemMessage.content == "System")
 
-        let toolMessage = OpenAIMessage.tool(.init(content: "Result", toolCallId: "123"))
+        let toolMessage = OpenAIMessage.tool(.init(content: "Result", toolCallId: "123", name: "tool_name"))
         #expect(toolMessage.content == "Result")
     }
 
@@ -647,13 +647,13 @@ struct OpenAIMessageExtendedTests {
         let userMessage = OpenAIMessage.user(.init(content: "Hello"))
         #expect(userMessage.role == .user)
 
-        let assistantMessage = OpenAIMessage.assistant(.init(content: "Hi", toolCalls: nil, audio: nil))
+        let assistantMessage = OpenAIMessage.assistant(.init(content: "Hi", toolCalls: nil, audio: nil, reasoning: nil))
         #expect(assistantMessage.role == .assistant)
 
         let systemMessage = OpenAIMessage.system(.init(content: "System"))
         #expect(systemMessage.role == .system)
 
-        let toolMessage = OpenAIMessage.tool(.init(content: "Result", toolCallId: "123"))
+        let toolMessage = OpenAIMessage.tool(.init(content: "Result", toolCallId: "123", name: "tool_name"))
         #expect(toolMessage.role == .tool)
     }
 

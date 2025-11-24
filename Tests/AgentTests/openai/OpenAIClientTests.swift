@@ -55,7 +55,8 @@ final class OpenAIClientTests: XCTestCase {
                     id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
                 )
             ],
-            audio: nil)
+            audio: nil,
+            reasoning: nil)
         controller.mockChatResponse([mockResponse])
 
         // Create a user message for testing
@@ -116,7 +117,8 @@ final class OpenAIClientTests: XCTestCase {
                     id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
                 )
             ],
-            audio: nil)
+            audio: nil,
+            reasoning: nil)
         controller.mockChatResponse([mockResponse])
 
         // Create a user message for testing

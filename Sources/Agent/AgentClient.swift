@@ -58,6 +58,7 @@ public actor AgentClient {
                     }
 
                     var currentAssistantContent = ""
+                    var currentAssistantReasoning: String? = nil
                     // Accumulate tool calls: index -> (id, type, name, arguments)
                     var accumulatedToolCalls:
                         [Int: (
@@ -78,6 +79,13 @@ public actor AgentClient {
                             if let content = delta.content {
                                 currentAssistantContent += content
                                 continuation.yield(.textDelta(content))
+                            }
+
+                            if let reasoning = delta.reasoning {
+                                if currentAssistantReasoning == nil {
+                                    currentAssistantReasoning = ""
+                                }
+                                currentAssistantReasoning! += reasoning
                             }
 
                             if let toolCalls = delta.toolCalls {
@@ -124,7 +132,8 @@ public actor AgentClient {
                             content: currentAssistantContent.isEmpty
                                 ? nil : currentAssistantContent,
                             toolCalls: finalToolCalls.isEmpty ? nil : finalToolCalls,
-                            audio: nil
+                            audio: nil,
+                            reasoning: currentAssistantReasoning
                         )
 
                         currentMessages.append(.assistant(assistantMessage))
@@ -167,7 +176,9 @@ public actor AgentClient {
                                                     let result = try await self.processToolCall(
                                                         tool: tool, toolCall: toolCall)
                                                     return .tool(
-                                                        .init(content: result, toolCallId: id))
+                                                        .init(
+                                                            content: result, toolCallId: id,
+                                                            name: name))
                                                 } catch let error as ToolError {
                                                     switch error {
                                                     case .invalidToolArgs:
@@ -175,26 +186,26 @@ public actor AgentClient {
                                                             .init(
                                                                 content:
                                                                     "Error: \(error.localizedDescription). Please fix the arguments and try again.",
-                                                                toolCallId: id))
+                                                                toolCallId: id, name: name))
                                                     default:
                                                         return .tool(
                                                             .init(
                                                                 content:
                                                                     "Error: \(error.localizedDescription)",
-                                                                toolCallId: id))
+                                                                toolCallId: id, name: name))
                                                     }
                                                 } catch {
                                                     return .tool(
                                                         .init(
                                                             content:
                                                                 "Error: \(error.localizedDescription)",
-                                                            toolCallId: id))
+                                                            toolCallId: id, name: name))
                                                 }
                                             } else {
                                                 return .tool(
                                                     .init(
                                                         content: "Tool \(name) not found.",
-                                                        toolCallId: id))
+                                                        toolCallId: id, name: name))
                                             }
                                         }
                                     }

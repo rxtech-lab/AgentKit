@@ -570,45 +570,46 @@ class MockOpenAIChatController {
 }
 
 @MainActor
-@Test func testToolStatusRendering() async throws {
-    let toolCallId = "call_1"
-    let assistantMessage = Message.openai(.assistant(.init(
-        content: nil,
-        toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
-        audio: nil
-    )))
-    
-    let toolMessage = Message.openai(.tool(.init(content: "Result", toolCallId: toolCallId)))
-    
-    let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
-    let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
-    
-    var capturedStatus: ToolStatus?
-    
-    let renderer: MessageRenderer = { msg, _, _, status in
-        if case .openai(let m) = msg, case .assistant = m {
-            capturedStatus = status
+    @Test func testToolStatusRendering() async throws {
+        let toolCallId = "call_1"
+        let assistantMessage = Message.openai(.assistant(.init(
+            content: nil,
+            toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
+            audio: nil,
+            reasoning: nil
+        )))
+        
+        let toolMessage = Message.openai(.tool(.init(content: "Result", toolCallId: toolCallId, name: "tool")))
+        
+        let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+        
+        var capturedStatus: ToolStatus?
+        
+        let renderer: MessageRenderer = { msg, _, _, status in
+            if case .openai(let m) = msg, case .assistant = m {
+                capturedStatus = status
+            }
+            return (AnyView(EmptyView()), .replace)
         }
-        return (AnyView(EmptyView()), .replace)
+        
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            renderMessage: renderer
+        )
+        
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+        
+        // Verify status is completed
+        _ = try view.find(ViewType.EmptyView.self) // Trigger render
+        
+        #expect(capturedStatus == .completed)
     }
-    
-    let sut = AgentLayout(
-        chat: chat,
-        currentModel: .constant(model),
-        currentSource: .constant(source),
-        sources: [source],
-        renderMessage: renderer
-    )
-    
-    ViewHosting.host(view: sut)
-    let view = try sut.inspect()
-    
-    // Verify status is completed
-    _ = try view.find(ViewType.EmptyView.self) // Trigger render
-    
-    #expect(capturedStatus == .completed)
-}
 
 @MainActor
 @Test func testToolStatusWaiting() async throws {
@@ -709,10 +710,9 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let updatedView = try sut.inspect()
         
         // Check if chat.messages has the rejection message
-        // Since we can't access state directly easily, we can check if the message count increased or specific content exists
-        // However, finding specific content in the view hierarchy is easier
-        // The rejection message content is "User cancelled this tool call"
-        _ = try updatedView.find(text: "User cancelled this tool call")
+        // Since the tool message is now hidden from the main list (rendered inside the assistant message),
+        // we check for the "Tool call complete" status in the UI instead of the raw content text.
+        _ = try updatedView.find(text: "Tool call complete: ui_tool")
     }
 
     @MainActor
@@ -732,12 +732,14 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMsg1 = OpenAIAssistantMessage(
             content: "This is the first response",
             toolCalls: nil,
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )
         let assistantMsg2 = OpenAIAssistantMessage(
             content: "This is the second response",
             toolCalls: nil,
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )
         controller.mockChatResponse([assistantMsg1])
         controller.mockChatResponse([assistantMsg2])
@@ -819,7 +821,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMsg = OpenAIAssistantMessage(
             content: "This is a response that will be canceled",
             toolCalls: nil,
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )
         controller.mockChatResponse([assistantMsg])
 
@@ -859,7 +862,7 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // The important thing is that cancel doesn't crash and properly cleans up state
 
         // Verify status is back to idle by sending another message successfully
-        controller.mockChatResponse([OpenAIAssistantMessage(content: "Second response", toolCalls: nil, audio: nil)])
+        controller.mockChatResponse([OpenAIAssistantMessage(content: "Second response", toolCalls: nil, audio: nil, reasoning: nil)])
         try inputView.actualView().onSend("Second message")
 
         try await Task.sleep(nanoseconds: 300_000_000)
@@ -893,7 +896,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMsg = OpenAIAssistantMessage(
             content: "First response",
             toolCalls: nil,
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )
         controller.mockChatResponse([assistantMsg])
 
@@ -957,7 +961,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMsg = OpenAIAssistantMessage(
             content: "Partial response",
             toolCalls: nil,
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )
         controller.mockChatResponse([assistantMsg])
 
@@ -995,11 +1000,12 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMessage = Message.openai(.assistant(.init(
             content: nil,
             toolCalls: [.init(index: 0, id: toolCallId, type: .function, function: .init(name: "tool", arguments: "{}"))],
-            audio: nil
+            audio: nil,
+            reasoning: nil
         )))
         
         // Create a rejection tool message
-        let toolMessage = Message.openai(.tool(.init(content: AgentLayout.REJECT_MESSAGE, toolCallId: toolCallId)))
+        let toolMessage = Message.openai(.tool(.init(content: AgentLayout.REJECT_MESSAGE, toolCallId: toolCallId, name: "tool")))
         
         let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
         let model = Model.openAI(.init(id: "gpt-4"))

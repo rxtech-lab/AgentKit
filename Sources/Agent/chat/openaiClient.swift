@@ -79,8 +79,12 @@ actor OpenAIClient {
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else {
-            let textResponse = response.description
-            throw OpenAIError.invalidResponse(url: endpoint, textResponse: textResponse)
+            // Read the full error body from responseStream
+            var errorBody = ""
+            for try await line in responseStream.lines {
+                errorBody += line
+            }
+            throw OpenAIError.invalidResponse(url: endpoint, textResponse: errorBody)
         }
 
         return responseStream

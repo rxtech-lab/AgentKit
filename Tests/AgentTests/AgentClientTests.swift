@@ -58,12 +58,14 @@ final class AgentClientTests: XCTestCase {
             function: .init(name: nil, arguments: "{\"location\": \"Paris\"}")
         )
 
-        let msg1Part1 = OpenAIAssistantMessage(content: nil, toolCalls: [delta1], audio: nil)
-        let msg1Part2 = OpenAIAssistantMessage(content: nil, toolCalls: [delta2], audio: nil)
+        let msg1Part1 = OpenAIAssistantMessage(
+            content: nil, toolCalls: [delta1], audio: nil, reasoning: nil)
+        let msg1Part2 = OpenAIAssistantMessage(
+            content: nil, toolCalls: [delta2], audio: nil, reasoning: nil)
 
         // Turn 2: Final Answer
         let msg2 = OpenAIAssistantMessage(
-            content: "It is sunny in Paris.", toolCalls: nil, audio: nil)
+            content: "It is sunny in Paris.", toolCalls: nil, audio: nil, reasoning: nil)
 
         await controller.mockChatResponse([msg1Part1, msg1Part2])
         await controller.mockChatResponse([msg2])
@@ -130,9 +132,10 @@ final class AgentClientTests: XCTestCase {
             function: .init(name: "get_weather", arguments: "{\"wrong_param\": \"Paris\"}")
         )
 
-        let msg1 = OpenAIAssistantMessage(content: nil, toolCalls: [invalidToolCall], audio: nil)
+        let msg1 = OpenAIAssistantMessage(
+            content: nil, toolCalls: [invalidToolCall], audio: nil, reasoning: nil)
         let msg2 = OpenAIAssistantMessage(
-            content: "I need the location.", toolCalls: nil, audio: nil)
+            content: "I need the location.", toolCalls: nil, audio: nil, reasoning: nil)
 
         await controller.mockChatResponse([msg1])
         await controller.mockChatResponse([msg2])
@@ -197,8 +200,10 @@ final class AgentClientTests: XCTestCase {
             function: .init(name: "missing_tool", arguments: "{}")
         )
 
-        let msg1 = OpenAIAssistantMessage(content: nil, toolCalls: [toolCall], audio: nil)
-        let msg2 = OpenAIAssistantMessage(content: "Tool not found.", toolCalls: nil, audio: nil)
+        let msg1 = OpenAIAssistantMessage(
+            content: nil, toolCalls: [toolCall], audio: nil, reasoning: nil)
+        let msg2 = OpenAIAssistantMessage(
+            content: "Tool not found.", toolCalls: nil, audio: nil, reasoning: nil)
 
         await controller.mockChatResponse([msg1])
         await controller.mockChatResponse([msg2])
@@ -246,8 +251,10 @@ final class AgentClientTests: XCTestCase {
             function: .init(name: "throwing_tool", arguments: "{\"val\": \"a\"}")
         )
 
-        let msg1 = OpenAIAssistantMessage(content: nil, toolCalls: [toolCall], audio: nil)
-        let msg2 = OpenAIAssistantMessage(content: "Tool failed.", toolCalls: nil, audio: nil)
+        let msg1 = OpenAIAssistantMessage(
+            content: nil, toolCalls: [toolCall], audio: nil, reasoning: nil)
+        let msg2 = OpenAIAssistantMessage(
+            content: "Tool failed.", toolCalls: nil, audio: nil, reasoning: nil)
 
         await controller.mockChatResponse([msg1])
         await controller.mockChatResponse([msg2])
