@@ -4,6 +4,8 @@ import Foundation
 public enum ApiType: String, Sendable {
     /// Any openai compatible api should use this type
     case openAI = "openai"
+    /// OpenRouter API
+    case openRouter = "openrouter"
 }
 
 /// Represents the architecture of an AI model, including its input/output modalities and tokenizer.
@@ -124,15 +126,18 @@ public enum Provider: Identifiable, Hashable, Sendable {
 }
 
 public enum Model: Identifiable, Hashable, Sendable {
-    /// An OpenAI, OpenRouter, or other compatible model
-    /// If you are using custom endpoints, you can use the `custom` case
+    /// An OpenAI compatible model
     case openAI(OpenAICompatibleModel)
+    /// An OpenRouter model
+    case openRouter(OpenAICompatibleModel)
     /// A custom model that you are using from an endpoint
     case custom(CustomModel)
 
     public var id: String {
         switch self {
         case .openAI(let model):
+            return model.id
+        case .openRouter(let model):
             return model.id
         case .custom(let model):
             return model.id
@@ -143,30 +148,10 @@ public enum Model: Identifiable, Hashable, Sendable {
         switch self {
         case .openAI(let model):
             return model.name ?? model.id
+        case .openRouter(let model):
+            return model.name ?? model.id
         case .custom(let model):
             return model.id
         }
-    }
-}
-
-public struct Source: Identifiable, Hashable, Sendable {
-    public let id: String
-    public let endpoint: String
-    public let apiKey: String
-    public let apiType: ApiType
-    public var models: [Model]
-    public let displayName: String
-
-    public init(id: String = UUID().uuidString, displayName: String, endpoint: String, apiKey: String, apiType: ApiType, models: [Model] = []) {
-        self.id = id
-        self.displayName = displayName
-        self.endpoint = endpoint
-        self.apiKey = apiKey
-        self.apiType = apiType
-        self.models = models
-    }
-
-    mutating func addModel(_ model: Model) {
-        models.append(model)
     }
 }

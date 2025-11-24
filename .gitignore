@@ -9,3 +9,4 @@ DerivedData/
 .index-build
 *.d
 .env
+*.b64

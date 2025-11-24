@@ -19,6 +19,22 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Create .env file from secret
+        run: echo "${{ secrets.ENV_B64 }}" | base64 --decode > .env
+
+      - name: Validate .env file
+        run: |
+          if [ ! -s .env ]; then
+            echo "Error: .env file is empty or does not exist"
+            exit 1
+          fi
+          line_count=$(wc -l < .env)
+          if [ "$line_count" -lt 2 ]; then
+            echo "Error: .env file has only $line_count lines, expected at least 2"
+            exit 1
+          fi
+          echo "✓ .env file validated: $line_count lines"
+
       - name: Build and Test with Xcode
         run: swift test --enable-code-coverage --no-parallel
 

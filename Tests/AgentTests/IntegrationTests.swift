@@ -12,7 +12,7 @@ struct TestError: Error {
 
 struct IntegrationTests {
 
-    func setUpTests() async throws -> (AgentClient, Source, String) {
+    func setUpTests() async throws -> (AgentClient, Source, Model) {
         let env = loadEnv()
         let apiKey = env["OPENAI_API_KEY"] ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
         let endpoint = env["OPENAI_API_BASE_URL"]
@@ -33,10 +33,14 @@ struct IntegrationTests {
             #expect(Bool(false), "OPENAI_MODEL not found in .env or environment")
             throw TestError("OPENAI_MODEL not found in .env or environment")
         }
-        let source = Source(
-            displayName: "OpenAI", endpoint: endpoint, apiKey: apiKey, apiType: .openAI)
+        let baseURL = URL(string: endpoint)!
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: apiKey, baseURL: baseURL),
+            models: []
+        )
         let client = AgentClient()
-        return (client, source, modelName)
+        let model = Model.custom(CustomModel(id: modelName))
+        return (client, source, model)
     }
 
     // Helper to load .env file
@@ -77,7 +81,7 @@ struct IntegrationTests {
     @Test
     func testRealOpenAIToolCall() async throws {
         // 1. Load configuration
-        let (client, source, modelName) = try await setUpTests()
+        let (client, source, model) = try await setUpTests()
 
         // 3. Define a simple tool
         struct CalculatorInput: Decodable {
@@ -107,9 +111,9 @@ struct IntegrationTests {
 
         let stream = await client.process(
             messages: messages,
-            model: modelName,
-            tools: [addTool],
-            source: source
+            model: model,
+            source: source,
+            tools: [addTool]
         )
 
         var toolCalled = false
@@ -160,7 +164,7 @@ struct IntegrationTests {
     @Test
     func testMultiTurnConversation() async throws {
         // 1. Load configuration
-        let (client, source, modelName) = try await setUpTests()
+        let (client, source, model) = try await setUpTests()
         // 3. Define a tool
         struct WeatherInput: Decodable {
             let location: String
@@ -189,9 +193,9 @@ struct IntegrationTests {
 
         let stream1 = await client.process(
             messages: conversation,
-            model: modelName,
-            tools: [weatherTool],
-            source: source
+            model: model,
+            source: source,
+            tools: [weatherTool]
         )
 
         for try await part in stream1 {
@@ -221,9 +225,9 @@ struct IntegrationTests {
 
         let stream2 = await client.process(
             messages: conversation,
-            model: modelName,
-            tools: [weatherTool],
-            source: source
+            model: model,
+            source: source,
+            tools: [weatherTool]
         )
 
         for try await part in stream2 {
@@ -248,7 +252,7 @@ struct IntegrationTests {
     @Test
     func testToolFailureHandling() async throws {
         // 1. Load configuration
-        let (client, source, modelName) = try await setUpTests()
+        let (client, source, model) = try await setUpTests()
         // 3. Define a failing tool
         struct FailInput: Decodable {
             let reason: String
@@ -275,9 +279,9 @@ struct IntegrationTests {
 
         let stream = await client.process(
             messages: messages,
-            model: modelName,
-            tools: [failingTool],
-            source: source
+            model: model,
+            source: source,
+            tools: [failingTool]
         )
 
         var errorReportedInToolMessage = false
@@ -322,7 +326,7 @@ struct IntegrationTests {
     @Test
     func testUIToolHandling() async throws {
         // 1. Load configuration
-        let (client, source, modelName) = try await setUpTests()
+        let (client, source, model) = try await setUpTests()
         // 3. Define a UI Tool
         struct ConfirmInput: Decodable {
             let message: String
@@ -347,9 +351,9 @@ struct IntegrationTests {
 
         let stream = await client.process(
             messages: messages,
-            model: modelName,
-            tools: [uiTool],
-            source: source
+            model: model,
+            source: source,
+            tools: [uiTool]
         )
 
         var toolCallDetected = false
@@ -389,9 +393,9 @@ struct IntegrationTests {
 
         let stream = await client.process(
             messages: messages,
-            model: "google/gemini-3-pro-preview",
-            tools: [],
-            source: source
+            model: .custom(CustomModel(id: "google/gemini-3-pro-preview")),
+            source: source,
+            tools: []
         )
 
         var finalContent = ""

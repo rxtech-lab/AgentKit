@@ -17,9 +17,10 @@ final class AgentClientTests: XCTestCase {
         app.http.server.configuration.port = port
         try await app.startup()
 
-        source = Source(
-            displayName: "Test", endpoint: "http://localhost:\(port)", apiKey: "test",
-            apiType: .openAI)
+        source = .openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:\(port)")!),
+            models: []
+        )
         agentClient = AgentClient()
     }
 
@@ -73,9 +74,9 @@ final class AgentClientTests: XCTestCase {
         // 3. Run Agent
         let stream = await agentClient.process(
             messages: [.openai(.user(.init(content: "Weather in Paris?")))],
-            model: "gpt-4",
-            tools: [weatherTool],
-            source: source
+            model: .custom(CustomModel(id: "gpt-4")),
+            source: source,
+            tools: [weatherTool]
         )
 
         var receivedContent = ""
@@ -143,9 +144,9 @@ final class AgentClientTests: XCTestCase {
         // 3. Run Agent
         let stream = await agentClient.process(
             messages: [.openai(.user(.init(content: "Weather in Paris?")))],
-            model: "gpt-4",
-            tools: [weatherTool],
-            source: source
+            model: .custom(CustomModel(id: "gpt-4")),
+            source: source,
+            tools: [weatherTool]
         )
 
         var toolErrorMessageFound = false
@@ -211,9 +212,9 @@ final class AgentClientTests: XCTestCase {
         // 3. Run Agent
         let stream = await agentClient.process(
             messages: [.openai(.user(.init(content: "Run missing tool")))],
-            model: "gpt-4",
-            tools: tools,
-            source: source
+            model: .custom(CustomModel(id: "gpt-4")),
+            source: source,
+            tools: tools
         )
 
         var toolErrorFound = false
@@ -262,9 +263,9 @@ final class AgentClientTests: XCTestCase {
         // 3. Run Agent
         let stream = await agentClient.process(
             messages: [.openai(.user(.init(content: "Run throwing tool")))],
-            model: "gpt-4",
-            tools: [throwingTool],
-            source: source
+            model: .custom(CustomModel(id: "gpt-4")),
+            source: source,
+            tools: [throwingTool]
         )
 
         var toolErrorFound = false
@@ -291,9 +292,9 @@ final class AgentClientTests: XCTestCase {
         let task = Task {
             let stream = await client.process(
                 messages: [],
-                model: "gpt-4",
-                tools: [],
-                source: src
+                model: .custom(CustomModel(id: "gpt-4")),
+                source: src,
+                tools: []
             )
             for try await _ in stream {}
         }
@@ -305,22 +306,25 @@ final class AgentClientTests: XCTestCase {
         let _ = await task.result
     }
 
-    func testInvalidURL() async throws {
-        let badSource = Source(
-            displayName: "Bad", endpoint: "invalid-url", apiKey: "key", apiType: .openAI)
+    func testInvalidSourceForModel() async throws {
+        // Test that using OpenRouter model with OpenAI source throws error
+        let openAISource = Source.openAI(
+            client: OpenAIClient(apiKey: "test"),
+            models: []
+        )
 
         let stream = await agentClient.process(
             messages: [],
-            model: "gpt-4",
-            tools: [],
-            source: badSource
+            model: .openRouter(OpenAICompatibleModel(id: "test-model")),
+            source: openAISource,
+            tools: []
         )
 
         do {
             for try await _ in stream {}
             XCTFail("Should throw error")
         } catch {
-            XCTAssertTrue(error is URLError)
+            XCTAssertTrue(error is AgentClientError)
         }
     }
 }

@@ -1,14 +1,14 @@
 //
-//  openai.swift
+//  openRouterClient.swift
 //  AgentLayout
 //
-//  Created by Qiwei Li on 5/19/25.
+//  Created by Claude on 11/24/25.
 //
 
 import Combine
 import Foundation
 
-enum OpenAIError: LocalizedError {
+enum OpenRouterError: LocalizedError {
     case invalidURL
     case requestFailed(Error)
     case invalidResponse(url: URL, textResponse: String)
@@ -28,41 +28,24 @@ enum OpenAIError: LocalizedError {
     }
 }
 
-struct OpenAIRequest: Codable {
-    struct FunctionTool: Codable {
-        let type: String
-        let function: OpenAITool
-    }
-
-    let model: String
-    let messages: [OpenAIMessage]
-    let stream: Bool
-    let tools: [FunctionTool]
-}
-
-struct StreamChunk: Codable {
-    let id: String
-    let created: Int
-    let model: String
-    let choices: [StreamChoice]
-}
-
-/// A single choice in a streaming response
-struct StreamChoice: Codable {
-    let index: Int
-    let delta: OpenAIAssistantMessage
-    let finishReason: String?
-}
-
-public actor OpenAIClient: ChatClient {
+public actor OpenRouterClient: ChatClient {
     private let apiKey: String
     private let baseURL: URL
+    private let appName: String?
+    private let siteURL: String?
 
-    public static let defaultBaseURL = URL(string: "https://api.openai.com/v1")!
+    public static let defaultBaseURL = URL(string: "https://openrouter.ai/api/v1")!
 
-    public init(apiKey: String, baseURL: URL? = nil) {
+    public init(
+        apiKey: String,
+        baseURL: URL? = nil,
+        appName: String? = nil,
+        siteURL: String? = nil
+    ) {
         self.apiKey = apiKey
         self.baseURL = baseURL ?? Self.defaultBaseURL
+        self.appName = appName
+        self.siteURL = siteURL
     }
 
     private func processToolCall(
@@ -284,6 +267,14 @@ public actor OpenAIClient: ChatClient {
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // OpenRouter-specific headers
+        if let siteURL = siteURL {
+            request.addValue(siteURL, forHTTPHeaderField: "HTTP-Referer")
+        }
+        if let appName = appName {
+            request.addValue(appName, forHTTPHeaderField: "X-Title")
+        }
+
         request.httpBody = try JSONEncoder().encode(body)
 
         let (responseStream, response) = try await URLSession.shared.bytes(for: request)
@@ -296,7 +287,7 @@ public actor OpenAIClient: ChatClient {
             for try await line in responseStream.lines {
                 errorBody += line
             }
-            throw OpenAIError.invalidResponse(url: endpoint, textResponse: errorBody)
+            throw OpenRouterError.invalidResponse(url: endpoint, textResponse: errorBody)
         }
 
         return responseStream
@@ -338,70 +329,5 @@ public actor OpenAIClient: ChatClient {
                 }
             }
         }
-    }
-
-    func generateStreamResponse(
-        systemText: String, message: OpenAIUserMessage, model: OpenAICompatibleModel,
-        tools: [OpenAITool] = [], history: [OpenAIMessage] = []
-    )
-        -> (stream: AsyncThrowingStream<OpenAIMessage, Error>, cancellable: Cancellable)
-    {
-        let task = Task<Void, Never> {}
-        let stream = AsyncThrowingStream<OpenAIMessage, Error> { continuation in
-            Task {
-                do {
-                    var messages: [OpenAIMessage] = []
-                    messages.append(.system(.init(content: systemText)))
-                    messages.append(contentsOf: history)
-                    messages.append(.user(message))
-
-                    let requestBody = OpenAIRequest(
-                        model: model.id,
-                        messages: messages,
-                        stream: true,
-                        tools: tools.map {
-                            OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
-                    )
-
-                    let responseStream = try await makeRequest(body: requestBody)
-                    var total = ""
-                    var totalToolCalls: [OpenAIToolCall] = []
-
-                    for try await line in responseStream.lines {
-                        if task.isCancelled {
-                            continuation.finish()
-                            break
-                        }
-
-                        if line.hasPrefix("data: "),
-                            let data = line.dropFirst(6).data(using: .utf8),
-                            let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
-                            let delta = json.choices.first?.delta
-                        {
-                            if let content = delta.content {
-                                total += content
-                                continuation.yield(
-                                    .assistant(.init(content: total, toolCalls: [], audio: nil))
-                                )
-                            }
-
-                            if let toolCalls = delta.toolCalls {
-                                totalToolCalls.append(contentsOf: toolCalls)
-                                continuation.yield(
-                                    .assistant(
-                                        .init(content: nil, toolCalls: toolCalls, audio: nil))
-                                )
-                            }
-                        }
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-        }
-
-        return (stream, Cancellable { task.cancel() })
     }
 }

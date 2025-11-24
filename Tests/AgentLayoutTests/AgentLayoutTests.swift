@@ -99,7 +99,7 @@ class MockOpenAIChatController {
     let message = Message.openai(.user(.init(content: messageContent)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [message])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
     
     let customContent = "Custom Replacement"
     let renderer: MessageRenderer = { _, _, _, _ in
@@ -135,7 +135,7 @@ class MockOpenAIChatController {
     let message = Message.openai(.user(.init(content: messageContent)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [message])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
     
     let customContent = "Custom Append"
     let renderer: MessageRenderer = { _, _, _, _ in
@@ -165,7 +165,7 @@ class MockOpenAIChatController {
     let message = Message.openai(.user(.init(content: messageContent)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [message])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
     
     let renderer: MessageRenderer = { _, _, _, _ in
         (AnyView(EmptyView()), .skip)
@@ -194,7 +194,7 @@ class MockOpenAIChatController {
 @Test func testOnSendCallback() async throws {
     let chat = Chat(id: UUID(), gameId: "test", messages: [])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
     
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -237,7 +237,7 @@ class MockOpenAIChatController {
 @Test func testOnMessageCallbackParameter() async throws {
     let chat = Chat(id: UUID(), gameId: "test", messages: [])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var receivedMessages: [Message] = []
     let onMessage: (Message) -> Void = { message in
@@ -266,7 +266,7 @@ class MockOpenAIChatController {
 @Test func testOnMessageCallbackWithBothCallbacks() async throws {
     let chat = Chat(id: UUID(), gameId: "test", messages: [])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     var receivedMessages: [Message] = []
@@ -305,7 +305,7 @@ class MockOpenAIChatController {
 @Test func testOnMessageCallbackNilByDefault() async throws {
     let chat = Chat(id: UUID(), gameId: "test", messages: [])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     // Verify AgentLayout works without onMessage callback (nil by default)
     let sut = AgentLayout(
@@ -328,7 +328,7 @@ class MockOpenAIChatController {
     let assistantMessage = Message.openai(.assistant(.init(content: "Response", toolCalls: nil, audio: nil)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [userMessage, assistantMessage])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -367,7 +367,7 @@ class MockOpenAIChatController {
     let assistantMessage = Message.openai(.assistant(.init(content: "Response", toolCalls: nil, audio: nil)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [userMessage, assistantMessage])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -407,7 +407,7 @@ class MockOpenAIChatController {
     let assistantMessage2 = Message.openai(.assistant(.init(content: "Second response", toolCalls: nil, audio: nil)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [userMessage1, assistantMessage1, userMessage2, assistantMessage2])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -448,7 +448,7 @@ class MockOpenAIChatController {
     let assistantMessage2 = Message.openai(.assistant(.init(content: "Second response", toolCalls: nil, audio: nil)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [userMessage1, assistantMessage1, userMessage2, assistantMessage2])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -486,7 +486,7 @@ class MockOpenAIChatController {
     let assistantMessage = Message.openai(.assistant(.init(content: "Original response", toolCalls: nil, audio: nil)))
     let chat = Chat(id: UUID(), gameId: "test", messages: [userMessage, assistantMessage])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sentMessage: String?
     let onSend: (String) -> Void = { message in
@@ -542,7 +542,7 @@ class MockOpenAIChatController {
     // This test verifies the basic functionality works without blocking
     let chat = Chat(id: UUID(), gameId: "test", messages: [])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sendCount = 0
     let onSend: (String) -> Void = { _ in
@@ -583,7 +583,7 @@ class MockOpenAIChatController {
         
         let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
         
         var capturedStatus: ToolStatus?
         
@@ -622,7 +622,7 @@ class MockOpenAIChatController {
     
     let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage])
     let model = Model.openAI(.init(id: "gpt-4"))
-    let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+    let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
     
     var capturedStatus: ToolStatus?
     
@@ -683,7 +683,7 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let assistantMessage = Message.openai(.assistant(assistantMsg))
         let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
         
         let sut = AgentLayout(
             chat: chat,
@@ -720,11 +720,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // Setup test data
         let chat = Chat(id: UUID(), gameId: "test", messages: [])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(
-            displayName: "Test",
-            endpoint: "http://localhost:8127",
-            apiKey: "test",
-            apiType: .openAI,
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
             models: [model]
         )
 
@@ -809,11 +806,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // Test that canceling generation emits onMessage with partial content
         let chat = Chat(id: UUID(), gameId: "test", messages: [])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(
-            displayName: "Test",
-            endpoint: "http://localhost:8127",
-            apiKey: "test",
-            apiType: .openAI,
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
             models: [model]
         )
 
@@ -884,11 +878,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // This ensures correct message is updated even if array changes
         let chat = Chat(id: UUID(), gameId: "test", messages: [])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(
-            displayName: "Test",
-            endpoint: "http://localhost:8127",
-            apiKey: "test",
-            apiType: .openAI,
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
             models: [model]
         )
 
@@ -949,11 +940,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // Test #2: When user sends message, and in sending mode, user click stop button, should sends cancelled message
         let chat = Chat(id: UUID(), gameId: "test", messages: [])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(
-            displayName: "Test",
-            endpoint: "http://localhost:8127",
-            apiKey: "test",
-            apiType: .openAI,
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
             models: [model]
         )
 
@@ -1003,23 +991,23 @@ final class AgentLayoutIntegrationTests: XCTestCase {
             audio: nil,
             reasoning: nil
         )))
-        
+
         // Create a rejection tool message
         let toolMessage = Message.openai(.tool(.init(content: AgentLayout.REJECT_MESSAGE, toolCallId: toolCallId, name: "tool")))
-        
+
         let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage, toolMessage])
         let model = Model.openAI(.init(id: "gpt-4"))
-        let source = Source(displayName: "Test", endpoint: "", apiKey: "", apiType: .openAI, models: [model])
-        
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
+
         var capturedStatus: ToolStatus?
-        
+
         let renderer: MessageRenderer = { msg, _, _, status in
             if case .openai(let m) = msg, case .assistant = m {
                 capturedStatus = status
             }
             return (AnyView(EmptyView()), .replace)
         }
-        
+
         let sut = AgentLayout(
             chat: chat,
             currentModel: .constant(model),
@@ -1027,14 +1015,79 @@ final class AgentLayoutIntegrationTests: XCTestCase {
             sources: [source],
             renderMessage: renderer
         )
-        
+
         ViewHosting.host(view: sut)
         let view = try sut.inspect()
-        
+
         // Trigger render
         _ = try view.find(ViewType.EmptyView.self)
-        
+
         #expect(capturedStatus == .rejected)
+    }
+
+    @MainActor
+    func testOnMessageCalledForToolCancellation() async throws {
+        // Test that onMessage is called when tool calls are cancelled
+        let toolCallId1 = "call_1"
+        let toolCallId2 = "call_2"
+        let assistantMessage = Message.openai(.assistant(.init(
+            content: nil,
+            toolCalls: [
+                .init(index: 0, id: toolCallId1, type: .function, function: .init(name: "tool1", arguments: "{}")),
+                .init(index: 1, id: toolCallId2, type: .function, function: .init(name: "tool2", arguments: "{}"))
+            ],
+            audio: nil,
+            reasoning: nil
+        )))
+
+        let chat = Chat(id: UUID(), gameId: "test", messages: [assistantMessage])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
+
+        var receivedMessages: [Message] = []
+        let onMessage: (Message) -> Void = { message in
+            receivedMessages.append(message)
+        }
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            onMessage: onMessage
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Verify we're waiting for tool result (input should be in loading state)
+        let inputView = try view.find(MessageInputView.self)
+        let inputViewStatus = try inputView.actualView().status
+        XCTAssertEqual(inputViewStatus, .loading, "Should be waiting for tool result")
+
+        // Cancel the tool calls
+        try inputView.actualView().onCancel()
+
+        // Verify onMessage was called for each tool rejection
+        let toolMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+               case .tool = openAIMsg {
+                return true
+            }
+            return false
+        }
+
+        XCTAssertEqual(toolMessages.count, 2, "Expected onMessage to be called for both tool rejections")
+
+        // Verify the rejection messages have correct content
+        for toolMsg in toolMessages {
+            if case .openai(let openAIMsg) = toolMsg,
+               case .tool(let tool) = openAIMsg {
+                XCTAssertEqual(tool.content, AgentLayout.REJECT_MESSAGE, "Tool message should contain rejection message")
+            } else {
+                XCTFail("Expected tool message")
+            }
+        }
     }
 
 }

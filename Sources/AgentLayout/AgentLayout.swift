@@ -160,6 +160,7 @@ public struct AgentLayout: View {
             scrollToBottom()
         }
 
+        let source = currentSource
         generationTask = Task {
             status = .loading
 
@@ -173,9 +174,9 @@ public struct AgentLayout: View {
             do {
                 let stream = await agentClient.process(
                     messages: chat.messages,
-                    model: currentModel.id,
-                    tools: tools,
-                    source: currentSource
+                    model: currentModel,
+                    source: source,
+                    tools: tools
                 )
 
                 var currentAssistantId = UUID().uuidString
@@ -368,6 +369,9 @@ public struct AgentLayout: View {
                             let toolMsg = Message.openai(
                                 .tool(.init(content: Self.REJECT_MESSAGE, toolCallId: id)))
                             chat.messages.append(toolMsg)
+
+                            // Invoke onMessage callback for the rejection message
+                            onMessage?(toolMsg)
 
                             Task {
                                 try? await chatProvider?.rejectFunction(id: id)
@@ -639,11 +643,8 @@ public struct AgentLayout: View {
         OpenAICompatibleModel(id: "gpt-4", name: "GPT-4")
     )
 
-    @Previewable @State var currentSource = Source(
-        displayName: "OpenAI",
-        endpoint: "https://api.openai.com/v1",
-        apiKey: "sk-dummy",
-        apiType: .openAI,
+    @Previewable @State var currentSource = Source.openAI(
+        client: OpenAIClient(apiKey: "sk-dummy"),
         models: [
             .openAI(OpenAICompatibleModel(id: "gpt-4", name: "GPT-4")),
             .openAI(OpenAICompatibleModel(id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo")),

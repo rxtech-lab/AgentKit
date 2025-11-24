@@ -232,16 +232,12 @@ struct ModelsTests {
     // MARK: - Source Tests
 
     @Test func testSourceInit() {
-        let source = Source(
-            displayName: "OpenAI",
-            endpoint: "https://api.openai.com",
-            apiKey: "test-key",
-            apiType: .openAI
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test-key"),
+            models: []
         )
         #expect(source.displayName == "OpenAI")
-        #expect(source.endpoint == "https://api.openai.com")
-        #expect(source.apiKey == "test-key")
-        #expect(source.apiType == .openAI)
+        #expect(source.id == "openai")
         #expect(source.models.isEmpty)
     }
 
@@ -250,32 +246,20 @@ struct ModelsTests {
             .openAI(OpenAICompatibleModel(id: "gpt-4")),
             .custom(CustomModel(id: "custom"))
         ]
-        let source = Source(
-            displayName: "Test",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI,
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: models
         )
         #expect(source.models.count == 2)
     }
 
-    @Test func testSourceHashable() {
-        let source1 = Source(
-            id: "test-id",
-            displayName: "Test",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI
+    @Test func testOpenRouterSource() {
+        let source = Source.openRouter(
+            client: OpenRouterClient(apiKey: "test-key"),
+            models: []
         )
-        let source2 = Source(
-            id: "test-id",
-            displayName: "Test",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI
-        )
-        #expect(source1 == source2)
+        #expect(source.displayName == "OpenRouter")
+        #expect(source.id == "openrouter")
     }
 }
 
@@ -433,11 +417,8 @@ struct ModelPickerTests {
 
     @Test func testModelPickerInit() throws {
         var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
-        var currentSource = Source(
-            displayName: "OpenAI",
-            endpoint: "https://api.openai.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: [.openAI(OpenAICompatibleModel(id: "gpt-4"))]
         )
 
@@ -454,22 +435,16 @@ struct ModelPickerTests {
 
     @Test func testModelPickerWithMultipleSources() throws {
         var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
-        var currentSource = Source(
-            displayName: "OpenAI",
-            endpoint: "https://api.openai.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: [.openAI(OpenAICompatibleModel(id: "gpt-4"))]
         )
 
         let sources = [
             currentSource,
-            Source(
-                displayName: "Anthropic",
-                endpoint: "https://api.anthropic.com",
-                apiKey: "key2",
-                apiType: .openAI,
-                models: [.openAI(OpenAICompatibleModel(id: "claude-3"))]
+            Source.openRouter(
+                client: OpenRouterClient(apiKey: "key2"),
+                models: [.openRouter(OpenAICompatibleModel(id: "anthropic/claude-3"))]
             )
         ]
 
@@ -486,11 +461,8 @@ struct ModelPickerTests {
 
     @Test func testModelPickerWithCustomModel() throws {
         var currentModel = Model.custom(CustomModel(id: "my-model"))
-        var currentSource = Source(
-            displayName: "Custom",
-            endpoint: "https://custom.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: [.custom(CustomModel(id: "my-model"))]
         )
 

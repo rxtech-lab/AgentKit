@@ -294,11 +294,8 @@ struct AdditionalModelPickerTests {
 
     @Test func testModelPickerWithEmptySources() throws {
         var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
-        var currentSource = Source(
-            displayName: "Empty",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: []
         )
 
@@ -315,11 +312,8 @@ struct AdditionalModelPickerTests {
 
     @Test func testModelPickerWithManyModels() throws {
         var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
-        var currentSource = Source(
-            displayName: "Test",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: (1...10).map { Model.openAI(OpenAICompatibleModel(id: "model-\($0)")) }
         )
 
@@ -336,11 +330,8 @@ struct AdditionalModelPickerTests {
 
     @Test func testModelPickerWithMixedModelTypes() throws {
         var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
-        var currentSource = Source(
-            displayName: "Mixed",
-            endpoint: "https://test.com",
-            apiKey: "key",
-            apiType: .openAI,
+        var currentSource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
             models: [
                 .openAI(OpenAICompatibleModel(id: "openai-model", name: "OpenAI Model")),
                 .custom(CustomModel(id: "custom-model"))

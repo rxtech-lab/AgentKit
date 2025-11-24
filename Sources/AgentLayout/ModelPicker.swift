@@ -75,11 +75,8 @@ struct ModelPicker: View {
 
 #Preview {
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt4o"))
-    @Previewable @State var currentSource: Source = .init(
-        displayName: "OpenAI",
-        endpoint: "",
-        apiKey: "",
-        apiType: .openAI,
+    @Previewable @State var currentSource: Source = .openAI(
+        client: OpenAIClient(apiKey: ""),
         models: [
             .openAI(.init(id: "gpt-4o")),
             .openAI(.init(id: "gpt-4")),
@@ -89,16 +86,18 @@ struct ModelPicker: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
-                  models: [
-                      .openAI(.init(id: "gpt-4o")),
-                      .openAI(.init(id: "gpt-4")),
-                  ]),
-            .init(displayName: "Anthropic", endpoint: "", apiKey: "", apiType: .openAI,
-                  models: [
-                      .openAI(.init(id: "Claude3.7")),
-                      .openAI(.init(id: "Claude3.7 Thinking")),
-                  ]),
+            .openAI(
+                client: OpenAIClient(apiKey: ""),
+                models: [
+                    .openAI(.init(id: "gpt-4o")),
+                    .openAI(.init(id: "gpt-4")),
+                ]),
+            .openRouter(
+                client: OpenRouterClient(apiKey: ""),
+                models: [
+                    .openRouter(.init(id: "anthropic/claude-3.5-sonnet")),
+                    .openRouter(.init(id: "anthropic/claude-3-opus")),
+                ]),
         ]
     ) {}
 }
