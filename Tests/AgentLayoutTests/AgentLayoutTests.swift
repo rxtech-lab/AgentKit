@@ -1590,6 +1590,99 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         XCTAssertEqual(inputViewStatus, .idle, "Input should be idle when all tool calls are resolved")
     }
 
+    @MainActor
+    func testMultiTurnToolCallFinalAssistantMessageDisplayed() async throws {
+        // This test verifies that the FINAL assistant message (after tool execution)
+        // is properly added to chat.messages and displayed in the UI
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
+            models: [model]
+        )
+
+        // Queue responses:
+        // 1. Assistant message with tool call (auto-execute tool)
+        // 2. Final assistant message with content
+        let toolCallId = "call_test_tool"
+        let assistantMsgWithToolCall = OpenAIAssistantMessage(
+            content: nil,
+            toolCalls: [
+                .init(
+                    index: 0, id: toolCallId, type: .function,
+                    function: .init(name: "auto_tool", arguments: "{\"query\": \"test\"}"))
+            ],
+            audio: nil,
+            reasoning: nil
+        )
+        let finalAssistantMsg = OpenAIAssistantMessage(
+            content: "Here is the final response after using the tool.",
+            toolCalls: nil,
+            audio: nil,
+            reasoning: nil
+        )
+        controller.mockChatResponse([assistantMsgWithToolCall])
+        controller.mockChatResponse([finalAssistantMsg])
+
+        var receivedMessages: [Message] = []
+        let onMessage: (Message) -> Void = { message in
+            receivedMessages.append(message)
+        }
+
+        let autoTool = MockAutoTool()
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            onMessage: onMessage,
+            tools: [autoTool]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Send a message to trigger the multi-turn flow
+        let inputView = try view.find(MessageInputView.self)
+        try inputView.actualView().onSend("Use a tool and give me a response")
+
+        // Wait for async response and tool execution
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+
+        // Verify all messages were received via onMessage callback
+        // Expected: 1 assistant with tool call, 1 tool result, 1 final assistant with content
+        let assistantMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg, case .assistant = openAIMsg {
+                return true
+            }
+            return false
+        }
+        XCTAssertEqual(assistantMessages.count, 2, "Expected 2 assistant messages (tool call + final response)")
+
+        // Verify the final assistant message has the expected content
+        let finalAssistantMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+               case .assistant(let assistant) = openAIMsg,
+               assistant.toolCalls == nil,
+               let content = assistant.content,
+               content.contains("Here is the final response")
+            {
+                return true
+            }
+            return false
+        }
+        XCTAssertEqual(
+            finalAssistantMessages.count, 1,
+            "Expected 1 final assistant message with content 'Here is the final response'"
+        )
+
+        // Note: ViewInspector has limitations with @State updates after async operations,
+        // so we verify via callbacks that all messages are properly processed.
+        // The fix ensures assistant messages are appended to chat.messages when
+        // currentStreamingMessageId is nil (multi-turn conversations after tool execution).
+    }
+
 }
 
 // MARK: - Mock Tools for Testing

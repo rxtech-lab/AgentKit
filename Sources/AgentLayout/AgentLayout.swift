@@ -66,6 +66,35 @@ public struct AgentLayout: View {
     let tools: [any AgentToolProtocol]
     let systemPrompt: String?
 
+    public init(
+        systemPrompt: String? = nil,
+        chat: Chat,
+        currentModel: Binding<Model>,
+        currentSource: Binding<Source>,
+        sources: [Source],
+        chatProvider: ChatProvider? = nil,
+        renderMessage: MessageRenderer? = nil,
+        onSend: ((Message) -> Void)? = nil,
+        onMessage: ((Message) -> Void)? = nil,
+        onDelete: ((Int) -> Void)? = nil,
+        onEdit: ((Int, Message) -> Void)? = nil,
+        tools: [any AgentToolProtocol] = []
+    ) {
+        self._chat = .init(initialValue: chat)
+        self.initialChat = chat
+        self._currentModel = currentModel
+        self._currentSource = currentSource
+        self.sources = sources
+        self.chatProvider = chatProvider
+        self.renderMessage = renderMessage
+        self.onSend = onSend
+        self.onMessage = onMessage
+        self.onDelete = onDelete
+        self.onEdit = onEdit
+        self.tools = tools
+        self.systemPrompt = systemPrompt
+    }
+
     // MARK: - Private Methods
 
     private var isWaitingForToolResult: Bool {
@@ -217,6 +246,21 @@ public struct AgentLayout: View {
 
                     switch part {
                     case .textDelta(let text):
+                        // If no streaming message exists, create one for multi-turn conversations
+                        if currentStreamingMessageId == nil {
+                            currentAssistantId = UUID().uuidString
+                            currentAssistantContent = ""
+                            let newMsg = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: "",
+                                        toolCalls: nil, audio: nil
+                                    )))
+                            chat.messages.append(newMsg)
+                            currentStreamingMessageId = currentAssistantId
+                        }
+
                         currentAssistantContent += text
                         // Update message by ID
                         if let index = chat.messages.firstIndex(where: {
@@ -240,6 +284,11 @@ public struct AgentLayout: View {
                                 $0.id == currentStreamingMessageId
                             }) {
                                 chat.messages[index] = msg
+                            } else {
+                                // Append as new message if no streaming message to update
+                                // This handles subsequent assistant messages in multi-turn conversations
+                                chat.messages.append(msg)
+                                shouldScroll = true
                             }
                             // Prepare for next turn
                             currentAssistantContent = ""
@@ -394,35 +443,6 @@ public struct AgentLayout: View {
         }
     }
 
-    public init(
-        chat: Chat,
-        currentModel: Binding<Model>,
-        currentSource: Binding<Source>,
-        sources: [Source],
-        chatProvider: ChatProvider? = nil,
-        renderMessage: MessageRenderer? = nil,
-        onSend: ((Message) -> Void)? = nil,
-        onMessage: ((Message) -> Void)? = nil,
-        onDelete: ((Int) -> Void)? = nil,
-        onEdit: ((Int, Message) -> Void)? = nil,
-        tools: [any AgentToolProtocol] = [],
-        systemPrompt: String? = nil
-    ) {
-        self._chat = .init(initialValue: chat)
-        self.initialChat = chat
-        self._currentModel = currentModel
-        self._currentSource = currentSource
-        self.sources = sources
-        self.chatProvider = chatProvider
-        self.renderMessage = renderMessage
-        self.onSend = onSend
-        self.onMessage = onMessage
-        self.onDelete = onDelete
-        self.onEdit = onEdit
-        self.tools = tools
-        self.systemPrompt = systemPrompt
-    }
-
     public var body: some View {
         ZStack(alignment: .bottom) {
             GeometryReader { outerGeometry in
@@ -456,7 +476,9 @@ public struct AgentLayout: View {
                                             status: status,
                                             isLastMessage: message.id == chat.messages.last?.id,
                                             onDelete: {
-                                                if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                                if let index = chat.messages.firstIndex(where: {
+                                                    $0.id == message.id
+                                                }) {
                                                     onDelete?(index)
                                                 }
                                                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -484,7 +506,9 @@ public struct AgentLayout: View {
                                             status: status,
                                             isLastMessage: message.id == chat.messages.last?.id,
                                             onDelete: {
-                                                if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                                if let index = chat.messages.firstIndex(where: {
+                                                    $0.id == message.id
+                                                }) {
                                                     onDelete?(index)
                                                 }
                                                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -512,7 +536,9 @@ public struct AgentLayout: View {
                                         status: status,
                                         isLastMessage: message.id == chat.messages.last?.id,
                                         onDelete: {
-                                            if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                            if let index = chat.messages.firstIndex(where: {
+                                                $0.id == message.id
+                                            }) {
                                                 onDelete?(index)
                                             }
                                             withAnimation(.easeInOut(duration: 0.3)) {

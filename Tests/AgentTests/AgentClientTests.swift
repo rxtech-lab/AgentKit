@@ -281,7 +281,7 @@ final class AgentClientTests: XCTestCase {
                 }
             }
         }
-        XCTAssertTrue(toolErrorFound)
+        XCTAssertTrue(toolErrorFound, "Expected to find tool error message")
     }
 
     func testCancellation() async throws {
