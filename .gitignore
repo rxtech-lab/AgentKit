@@ -8,3 +8,5 @@ DerivedData/
 .netrc
 .index-build
 *.d
+.env
+*.b64

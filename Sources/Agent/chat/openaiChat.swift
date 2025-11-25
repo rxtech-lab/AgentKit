@@ -151,10 +151,18 @@ public struct OpenAIToolCall: Hashable, Codable, Sendable {
     public struct Function: Hashable, Codable, Sendable {
         public let name: String?
         public let arguments: String?
+        public let thoughtSignature: String?
 
-        public init(name: String?, arguments: String?) {
+        enum CodingKeys: String, CodingKey {
+            case name
+            case arguments
+            case thoughtSignature = "thought_signature"
+        }
+
+        public init(name: String?, arguments: String?, thoughtSignature: String? = nil) {
             self.name = name
             self.arguments = arguments
+            self.thoughtSignature = thoughtSignature
         }
     }
 
@@ -226,12 +234,24 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
         }
     }
 
+    public struct ReasoningDetail: Hashable, Codable, Sendable {
+        public let id: String?
+        public let format: String?
+
+        public init(id: String?, format: String?) {
+            self.id = id
+            self.format = format
+        }
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case role
         case content
         case toolCalls = "tool_calls"
         case audio
+        case reasoning
+        case reasoningDetails = "reasoning_details"
     }
 
     public let id: String
@@ -239,14 +259,18 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
     public let content: String?
     public let toolCalls: [OpenAIToolCall]?
     public let audio: Audio?
+    public let reasoning: String?
+    public let reasoningDetails: [ReasoningDetail]?
 
     public init(
-        id: String? = nil, content: String? = nil, toolCalls: [OpenAIToolCall]? = nil, audio: Audio?
+        id: String? = nil, content: String? = nil, toolCalls: [OpenAIToolCall]? = nil, audio: Audio? = nil, reasoning: String? = nil, reasoningDetails: [ReasoningDetail]? = nil
     ) {
         self.id = id ?? UUID().uuidString
         self.content = content
         self.toolCalls = toolCalls
         self.audio = audio
+        self.reasoning = reasoning
+        self.reasoningDetails = reasoningDetails
     }
 
     public init(from decoder: Decoder) throws {
@@ -256,6 +280,8 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
         self.content = try container.decodeIfPresent(String.self, forKey: .content)
         self.toolCalls = try container.decodeIfPresent([OpenAIToolCall].self, forKey: .toolCalls)
         self.audio = try container.decodeIfPresent(Audio.self, forKey: .audio)
+        self.reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning)
+        self.reasoningDetails = try container.decodeIfPresent([ReasoningDetail].self, forKey: .reasoningDetails)
     }
 
     /// Convert the response assistant message to request message. Will drop the audio.
@@ -264,7 +290,9 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
             id: id,
             content: content,
             toolCalls: toolCalls,
-            audio: nil
+            audio: nil,
+            reasoning: reasoning,
+            reasoningDetails: reasoningDetails
         )
     }
 }
@@ -298,18 +326,21 @@ public struct OpenAIToolMessage: Hashable, Codable, Sendable {
     public var role: OpenAIRole = .tool
     public let content: String
     public let toolCallId: String
+    public let name: String?
 
     private enum CodingKeys: String, CodingKey {
         case id
         case role
         case content
-        case toolCallId
+        case toolCallId = "tool_call_id"
+        case name
     }
 
-    public init(id: String = UUID().uuidString, content: String, toolCallId: String) {
+    public init(id: String = UUID().uuidString, content: String, toolCallId: String, name: String? = nil) {
         self.id = id
         self.content = content
         self.toolCallId = toolCallId
+        self.name = name
     }
 
     public init(from decoder: Decoder) throws {
@@ -318,6 +349,7 @@ public struct OpenAIToolMessage: Hashable, Codable, Sendable {
         self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .tool
         self.content = try container.decode(String.self, forKey: .content)
         self.toolCallId = try container.decode(String.self, forKey: .toolCallId)
+        self.name = try container.decodeIfPresent(String.self, forKey: .name)
     }
 }
 

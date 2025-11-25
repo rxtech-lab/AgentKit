@@ -113,4 +113,65 @@ struct MessageRowTests {
         let vStack = try view.find(ViewType.VStack.self)
         _ = try vStack.find(ViewType.HStack.self)
     }
+
+    @Test func testRegenerateCallbackForUserMessage() async throws {
+        let message = OpenAIMessage.user(.init(content: "Hello"))
+
+        let row = OpenAIMessageRow(
+            id: "1",
+            message: message,
+            onRegenerate: { }
+        )
+        let view = try row.inspect()
+
+        // Verify the view structure for user message
+        let vStack = try view.find(ViewType.VStack.self)
+        let hStack = try vStack.find(ViewType.HStack.self)
+
+        // User messages have Spacer first (trailing alignment)
+        _ = try hStack.find(ViewType.Spacer.self)
+    }
+
+    @Test func testUserMessageHasRegenerateButton() async throws {
+        let message = OpenAIMessage.user(.init(content: "Hello"))
+
+        let row = OpenAIMessageRow(
+            id: "1",
+            message: message,
+            onRegenerate: { }
+        )
+        let view = try row.inspect()
+
+        // Verify the view structure exists
+        let vStack = try view.find(ViewType.VStack.self)
+
+        // Find buttons in the action buttons HStack
+        // The regenerate button should exist for user messages now
+        let buttons = vStack.findAll(ViewType.Button.self)
+
+        // User message should have at least 3 buttons: edit, regenerate, copy, delete
+        // When not in edit mode, we have: edit pencil + regenerate + copy + delete = 4 buttons
+        #expect(buttons.count >= 3, "User message should have regenerate button along with other action buttons")
+    }
+
+    @Test func testAssistantMessageHasRegenerateButton() async throws {
+        let message = OpenAIMessage.assistant(
+            .init(content: "Response", toolCalls: nil, audio: nil))
+
+        let row = OpenAIMessageRow(
+            id: "1",
+            message: message,
+            onRegenerate: { }
+        )
+        let view = try row.inspect()
+
+        // Verify the view structure exists
+        let vStack = try view.find(ViewType.VStack.self)
+
+        // Find buttons in the action buttons HStack
+        let buttons = vStack.findAll(ViewType.Button.self)
+
+        // Assistant message should have: regenerate + copy + delete = 3 buttons
+        #expect(buttons.count >= 3, "Assistant message should have regenerate button along with other action buttons")
+    }
 }

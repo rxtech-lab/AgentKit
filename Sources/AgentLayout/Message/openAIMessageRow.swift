@@ -189,16 +189,14 @@ struct OpenAIMessageRow: View {
                 }
 
                 if !isEditing {
-                    // Regenerate button for assistant messages
-                    if role == .assistant {
-                        Button(action: {
-                            onRegenerate?()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(Color.gray.opacity(1))
-                        }
-                        .buttonStyle(.plain)
+                    // Regenerate button for all messages
+                    Button(action: {
+                        onRegenerate?()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(Color.gray.opacity(1))
                     }
+                    .buttonStyle(.plain)
 
                     Button(action: {
                         #if canImport(UIKit)

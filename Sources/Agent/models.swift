@@ -4,6 +4,8 @@ import Foundation
 public enum ApiType: String, Sendable {
     /// Any openai compatible api should use this type
     case openAI = "openai"
+    /// OpenRouter API
+    case openRouter = "openrouter"
 }
 
 /// Represents the architecture of an AI model, including its input/output modalities and tokenizer.
@@ -33,6 +35,27 @@ public struct Pricing: Sendable, Hashable {
     public let internalReasoning: Double
 }
 
+/// Configuration for extended thinking/reasoning tokens.
+/// When enabled, the model will use extended thinking to reason through complex problems.
+/// The reasoning content is preserved across tool calls to maintain context.
+///
+/// Note: Only models that include "reasoning" in their `supportedParameters` can use this feature.
+public struct ReasoningConfig: Sendable, Hashable, Codable {
+    /// Maximum number of tokens to use for reasoning
+    public let maxTokens: Int
+
+    /// Default reasoning configuration with 2000 tokens
+    public static let `default` = ReasoningConfig(maxTokens: 2000)
+
+    private enum CodingKeys: String, CodingKey {
+        case maxTokens = "max_tokens"
+    }
+
+    public init(maxTokens: Int) {
+        self.maxTokens = maxTokens
+    }
+}
+
 /// A model that implements the OpenAI model interface with additional OpenRouter-specific fields.
 /// While maintaining compatibility with OpenAI's interface, this model includes extra properties
 /// defined by OpenRouter to support additional functionality and metadata.
@@ -58,12 +81,20 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
     public let perRequestLimits: [String: String]?
     /// Parameters that can be configured when using this model
     public let supportedParameters: [String]?
+    /// Configuration for extended thinking/reasoning tokens.
+    /// Set this to enable reasoning for models that support it (those with "reasoning" in supportedParameters).
+    public let reasoningConfig: ReasoningConfig?
+
+    /// Whether this model supports reasoning based on its supportedParameters
+    public var supportsReasoning: Bool {
+        supportedParameters?.contains("reasoning") ?? false
+    }
 
     public init(
         id: String, name: String? = nil, created: Int? = nil, description: String? = nil,
         architecture: Architecture? = nil, pricing: Pricing? = nil, contextLength: Int? = nil,
         huggingFaceId: String? = nil, perRequestLimits: [String: String]? = nil,
-        supportedParameters: [String]? = nil
+        supportedParameters: [String]? = nil, reasoningConfig: ReasoningConfig? = nil
     ) {
         self.id = id
         self.name = name
@@ -75,14 +106,17 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
         self.huggingFaceId = huggingFaceId
         self.perRequestLimits = perRequestLimits
         self.supportedParameters = supportedParameters
+        self.reasoningConfig = reasoningConfig
     }
 }
 
 public struct CustomModel: Identifiable, Hashable, Sendable {
     public let id: String
+    public let reasoningConfig: ReasoningConfig?
 
-    public init(id: String) {
+    public init(id: String, reasoningConfig: ReasoningConfig? = nil) {
         self.id = id
+        self.reasoningConfig = reasoningConfig
     }
 }
 
@@ -124,15 +158,18 @@ public enum Provider: Identifiable, Hashable, Sendable {
 }
 
 public enum Model: Identifiable, Hashable, Sendable {
-    /// An OpenAI, OpenRouter, or other compatible model
-    /// If you are using custom endpoints, you can use the `custom` case
+    /// An OpenAI compatible model
     case openAI(OpenAICompatibleModel)
+    /// An OpenRouter model
+    case openRouter(OpenAICompatibleModel)
     /// A custom model that you are using from an endpoint
     case custom(CustomModel)
 
     public var id: String {
         switch self {
         case .openAI(let model):
+            return model.id
+        case .openRouter(let model):
             return model.id
         case .custom(let model):
             return model.id
@@ -143,30 +180,34 @@ public enum Model: Identifiable, Hashable, Sendable {
         switch self {
         case .openAI(let model):
             return model.name ?? model.id
+        case .openRouter(let model):
+            return model.name ?? model.id
         case .custom(let model):
             return model.id
         }
     }
-}
 
-public struct Source: Identifiable, Hashable, Sendable {
-    public let id: String
-    public let endpoint: String
-    public let apiKey: String
-    public let apiType: ApiType
-    public var models: [Model]
-    public let displayName: String
-
-    public init(id: String = UUID().uuidString, displayName: String, endpoint: String, apiKey: String, apiType: ApiType, models: [Model] = []) {
-        self.id = id
-        self.displayName = displayName
-        self.endpoint = endpoint
-        self.apiKey = apiKey
-        self.apiType = apiType
-        self.models = models
-    }
-
-    mutating func addModel(_ model: Model) {
-        models.append(model)
+    /// Get the reasoning configuration for this model.
+    /// If the user specified a config, use it. Otherwise, auto-enable with default config
+    /// if the model supports reasoning (has "reasoning" in supportedParameters).
+    public var reasoningConfig: ReasoningConfig? {
+        switch self {
+        case .openAI(let model):
+            // If user specified a config, use it
+            if let config = model.reasoningConfig {
+                return config
+            }
+            // Otherwise, auto-enable if model supports reasoning
+            return model.supportsReasoning ? .default : nil
+        case .openRouter(let model):
+            // If user specified a config, use it
+            if let config = model.reasoningConfig {
+                return config
+            }
+            // Otherwise, auto-enable if model supports reasoning
+            return model.supportsReasoning ? .default : nil
+        case .custom(let model):
+            return model.reasoningConfig
+        }
     }
 }

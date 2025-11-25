@@ -38,6 +38,23 @@ struct OpenAIRequest: Codable {
     let messages: [OpenAIMessage]
     let stream: Bool
     let tools: [FunctionTool]
+    let reasoning: ReasoningConfig?
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(model, forKey: .model)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(stream, forKey: .stream)
+        try container.encode(tools, forKey: .tools)
+        // Only encode reasoning if it's not nil
+        if let reasoning = reasoning {
+            try container.encode(reasoning, forKey: .reasoning)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model, messages, stream, tools, reasoning
+    }
 }
 
 struct StreamChunk: Codable {
@@ -54,13 +71,43 @@ struct StreamChoice: Codable {
     let finishReason: String?
 }
 
-actor OpenAIClient {
+/// A streaming delta with its associated finish reason
+struct StreamDelta: Sendable {
+    let delta: OpenAIAssistantMessage
+    let finishReason: String?
+}
+
+public actor OpenAIClient: ChatClient {
     private let apiKey: String
     private let baseURL: URL
 
-    init(baseURL: URL, apiKey: String) {
+    public static let defaultBaseURL = URL(string: "https://api.openai.com/v1")!
+
+    public init(apiKey: String, baseURL: URL? = nil) {
         self.apiKey = apiKey
-        self.baseURL = baseURL
+        self.baseURL = baseURL ?? Self.defaultBaseURL
+    }
+
+    nonisolated public func process(
+        messages: [Message],
+        model: Model,
+        tools: [any AgentToolProtocol],
+        maxTurns: Int = 20
+    ) -> AsyncThrowingStream<AgentResponsePart, Error> {
+        return OpenAIChatProcessor.process(
+            messages: messages,
+            model: model,
+            tools: tools,
+            maxTurns: maxTurns,
+            streamChat: { [self] messages, modelId, tools, reasoning in
+                await self.streamChat(
+                    messages: messages,
+                    model: modelId,
+                    tools: tools,
+                    reasoning: reasoning
+                )
+            }
+        )
     }
 
     func makeRequest(
@@ -79,8 +126,12 @@ actor OpenAIClient {
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else {
-            let textResponse = response.description
-            throw OpenAIError.invalidResponse(url: endpoint, textResponse: textResponse)
+            // Read the full error body from responseStream
+            var errorBody = ""
+            for try await line in responseStream.lines {
+                errorBody += line
+            }
+            throw OpenAIError.invalidResponse(url: endpoint, textResponse: errorBody)
         }
 
         return responseStream
@@ -89,8 +140,9 @@ actor OpenAIClient {
     func streamChat(
         messages: [OpenAIMessage],
         model: String,
-        tools: [OpenAITool] = []
-    ) -> AsyncThrowingStream<OpenAIAssistantMessage, Error> {
+        tools: [OpenAITool] = [],
+        reasoning: ReasoningConfig? = nil
+    ) -> AsyncThrowingStream<StreamDelta, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -100,7 +152,8 @@ actor OpenAIClient {
                         stream: true,
                         tools: tools.map {
                             OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
+                        },
+                        reasoning: reasoning
                     )
 
                     let responseStream = try await makeRequest(body: requestBody)
@@ -110,9 +163,12 @@ actor OpenAIClient {
                             let data = line.dropFirst(6).data(using: .utf8)
                         {
                             if let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
-                                let delta = json.choices.first?.delta
+                                let choice = json.choices.first
                             {
-                                continuation.yield(delta)
+                                continuation.yield(StreamDelta(
+                                    delta: choice.delta,
+                                    finishReason: choice.finishReason
+                                ))
                             }
                         }
                     }
@@ -145,7 +201,8 @@ actor OpenAIClient {
                         stream: true,
                         tools: tools.map {
                             OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
+                        },
+                        reasoning: model.reasoningConfig
                     )
 
                     let responseStream = try await makeRequest(body: requestBody)

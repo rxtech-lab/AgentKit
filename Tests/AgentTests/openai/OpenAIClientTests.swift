@@ -33,15 +33,19 @@ final class OpenAIClientTests: XCTestCase {
 
         // Initialize the client with the testing server URL
         let baseURL = URL(string: "http://localhost:\(port)")!
-        client = OpenAIClient(baseURL: baseURL, apiKey: "test-api-key")
+        client = OpenAIClient(apiKey: "test-api-key", baseURL: baseURL)
     }
 
     override func tearDown() async throws {
         // Shut down the server
-        try await app.asyncShutdown()
+        if let app = app {
+            try? await app.asyncShutdown()
+        }
         app = nil
         controller = nil
         client = nil
+        // Small delay to ensure port is released
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
     }
 
     @MainActor
@@ -55,7 +59,8 @@ final class OpenAIClientTests: XCTestCase {
                     id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
                 )
             ],
-            audio: nil)
+            audio: nil,
+            reasoning: nil)
         controller.mockChatResponse([mockResponse])
 
         // Create a user message for testing
@@ -116,7 +121,8 @@ final class OpenAIClientTests: XCTestCase {
                     id: "tool1", type: .function, function: .init(name: "getWeather", arguments: "")
                 )
             ],
-            audio: nil)
+            audio: nil,
+            reasoning: nil)
         controller.mockChatResponse([mockResponse])
 
         // Create a user message for testing

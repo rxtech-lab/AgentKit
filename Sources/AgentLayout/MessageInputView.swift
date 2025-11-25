@@ -84,6 +84,7 @@ struct MessageInputView: View {
             HStack(alignment: .top, spacing: 8) {
                 TextField("Message...", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
+                    .disabled(status == .loading)
                     .lineLimit(1...6)
                     .onKeyPress { press in
                         guard press.key == .return else { return .ignored }
@@ -183,11 +184,8 @@ struct MessageInputView: View {
         long text
         """
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt-4o"))
-    @Previewable @State var currentSource: Source = .init(
-        displayName: "OpenAI",
-        endpoint: "",
-        apiKey: "",
-        apiType: .openAI,
+    @Previewable @State var currentSource: Source = .openAI(
+        client: OpenAIClient(apiKey: ""),
         models: [
             .openAI(.init(id: "gpt-4o")),
             .openAI(.init(id: "gpt-4")),
@@ -201,8 +199,8 @@ struct MessageInputView: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(
-                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+            .openAI(
+                client: OpenAIClient(apiKey: ""),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
@@ -219,8 +217,8 @@ struct MessageInputView: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(
-                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+            .openAI(
+                client: OpenAIClient(apiKey: ""),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
@@ -237,8 +235,8 @@ struct MessageInputView: View {
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [
-            .init(
-                displayName: "OpenAI", endpoint: "", apiKey: "", apiType: .openAI,
+            .openAI(
+                client: OpenAIClient(apiKey: ""),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),

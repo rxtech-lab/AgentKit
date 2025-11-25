@@ -36,6 +36,8 @@ struct ViewHeightKey: PreferenceKey {
 }
 
 public struct AgentLayout: View {
+    public static let REJECT_MESSAGE = "User cancelled this tool call"
+
     @State var chat: Chat
 
     private let initialChat: Chat
@@ -57,11 +59,116 @@ public struct AgentLayout: View {
 
     let chatProvider: ChatProvider?
     let renderMessage: MessageRenderer?
-    let onSend: ((String) -> Void)?
+    let onSend: ((Message) -> Void)?
     let onMessage: ((Message) -> Void)?
-    let tools: [AgentTool]
+    let onDelete: ((Int) -> Void)?
+    let onEdit: ((Int, Message) -> Void)?
+    let tools: [any AgentToolProtocol]
+    let systemPrompt: String?
+    let contentMaxWidth: CGFloat
+
+    public init(
+        systemPrompt: String? = nil,
+        chat: Chat,
+        currentModel: Binding<Model>,
+        currentSource: Binding<Source>,
+        sources: [Source],
+        chatProvider: ChatProvider? = nil,
+        renderMessage: MessageRenderer? = nil,
+        onSend: ((Message) -> Void)? = nil,
+        onMessage: ((Message) -> Void)? = nil,
+        onDelete: ((Int) -> Void)? = nil,
+        onEdit: ((Int, Message) -> Void)? = nil,
+        tools: [any AgentToolProtocol] = [],
+        contentMaxWidth: CGFloat = 800
+    ) {
+        self._chat = .init(initialValue: chat)
+        self.initialChat = chat
+        self._currentModel = currentModel
+        self._currentSource = currentSource
+        self.sources = sources
+        self.chatProvider = chatProvider
+        self.renderMessage = renderMessage
+        self.onSend = onSend
+        self.onMessage = onMessage
+        self.onDelete = onDelete
+        self.onEdit = onEdit
+        self.tools = tools
+        self.systemPrompt = systemPrompt
+        self.contentMaxWidth = contentMaxWidth
+    }
 
     // MARK: - Private Methods
+
+    private var isWaitingForToolResult: Bool {
+        // Find last assistant message with tools
+        guard
+            let lastAssistantIndex = chat.messages.lastIndex(where: {
+                if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
+                    !tc.isEmpty
+                {
+                    return true
+                }
+                return false
+            })
+        else {
+            return false
+        }
+
+        let assistantMsg = chat.messages[lastAssistantIndex]
+        guard case .openai(let m) = assistantMsg, case .assistant(let a) = m,
+            let toolCalls = a.toolCalls
+        else { return false }
+
+        let toolCallIds = Set(toolCalls.compactMap { $0.id })
+
+        // Check subsequent messages for resolution
+        var resolvedIds = Set<String>()
+        for i in (lastAssistantIndex + 1)..<chat.messages.count {
+            if case .openai(let m) = chat.messages[i], case .tool(let t) = m {
+                resolvedIds.insert(t.toolCallId)
+            }
+        }
+
+        return !toolCallIds.isSubset(of: resolvedIds)
+    }
+
+    private func getToolStatus(for message: Message, in messages: [Message]) -> ToolStatus {
+        guard case .openai(let openAIMessage) = message,
+            case .assistant(let assistantMessage) = openAIMessage,
+            let toolCalls = assistantMessage.toolCalls,
+            !toolCalls.isEmpty
+        else {
+            return .completed
+        }
+
+        let toolCallIds = Set(toolCalls.compactMap { $0.id })
+        var resolvedIds = Set<String>()
+        var rejected = false
+
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else {
+            return .waitingForResult
+        }
+
+        for j in (index + 1)..<messages.count {
+            if case .openai(let nextMsg) = messages[j],
+                case .tool(let toolMsg) = nextMsg
+            {
+                if toolCallIds.contains(toolMsg.toolCallId) {
+                    resolvedIds.insert(toolMsg.toolCallId)
+                    if toolMsg.content == Self.REJECT_MESSAGE {
+                        rejected = true
+                    }
+                }
+            }
+        }
+
+        if toolCallIds.isSubset(of: resolvedIds) {
+            return rejected ? .rejected : .completed
+        } else {
+            return .waitingForResult
+        }
+    }
 
     private func scrollToBottom() {
         guard let lastMessage = chat.messages.last else { return }
@@ -74,20 +181,21 @@ public struct AgentLayout: View {
         // Guard against concurrent generation
         guard generationTask == nil else { return }
 
-        // Notify external handler if exists
-        if let onSend = onSend {
-            onSend(message)
-        }
-
         // Create and append user message
         let userMsg = Message.openai(.user(.init(content: message)))
         chat.messages.append(userMsg)
+
+        // Notify external handler if exists
+        if let onSend = onSend {
+            onSend(userMsg)
+        }
 
         // Scroll to bottom after sending
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             scrollToBottom()
         }
 
+        let source = currentSource
         generationTask = Task {
             status = .loading
 
@@ -99,16 +207,39 @@ public struct AgentLayout: View {
             }
 
             do {
+                // Prepend system message if systemPrompt is provided
+                var messagesToSend = chat.messages
+                if let systemPrompt = systemPrompt, !systemPrompt.isEmpty {
+                    let systemMessage = Message.openai(.system(.init(content: systemPrompt)))
+                    messagesToSend.insert(systemMessage, at: 0)
+                }
+
                 let stream = await agentClient.process(
-                    messages: chat.messages,
-                    model: currentModel.id,
-                    tools: tools,
-                    source: currentSource
+                    messages: messagesToSend,
+                    model: currentModel,
+                    source: source,
+                    tools: tools
                 )
 
                 var currentAssistantId = UUID().uuidString
                 var currentAssistantContent = ""
-                var isFirstChunk = true
+
+                // Add empty assistant message immediately
+                let initialMsg = Message.openai(
+                    .assistant(
+                        .init(
+                            id: currentAssistantId,
+                            content: "",
+                            toolCalls: nil, audio: nil
+                        )))
+                chat.messages.append(initialMsg)
+                currentStreamingMessageId = currentAssistantId
+
+                // Scroll to show the new message
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                await MainActor.run {
+                    scrollToBottom()
+                }
 
                 for try await part in stream {
                     // Check for cancellation
@@ -118,56 +249,51 @@ public struct AgentLayout: View {
 
                     switch part {
                     case .textDelta(let text):
-                        currentAssistantContent += text
-                        if isFirstChunk {
+                        // If no streaming message exists, create one for multi-turn conversations
+                        if currentStreamingMessageId == nil {
+                            currentAssistantId = UUID().uuidString
+                            currentAssistantContent = ""
                             let newMsg = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: "",
+                                        toolCalls: nil, audio: nil
+                                    )))
+                            chat.messages.append(newMsg)
+                            currentStreamingMessageId = currentAssistantId
+                        }
+
+                        currentAssistantContent += text
+                        // Update message by ID
+                        if let index = chat.messages.firstIndex(where: {
+                            $0.id == currentStreamingMessageId
+                        }) {
+                            chat.messages[index] = Message.openai(
                                 .assistant(
                                     .init(
                                         id: currentAssistantId,
                                         content: currentAssistantContent,
                                         toolCalls: nil, audio: nil
                                     )))
-                            chat.messages.append(newMsg)
-                            currentStreamingMessageId = currentAssistantId
-                            isFirstChunk = false
-
-                            // Scroll when first assistant chunk arrives
-                            try? await Task.sleep(nanoseconds: 100_000_000)
-                            await MainActor.run {
-                                scrollToBottom()
-                            }
-                        } else {
-                            // Update message by ID instead of index
-                            if let index = chat.messages.firstIndex(where: {
-                                $0.id == currentStreamingMessageId
-                            }) {
-                                chat.messages[index] = Message.openai(
-                                    .assistant(
-                                        .init(
-                                            id: currentAssistantId,
-                                            content: currentAssistantContent,
-                                            toolCalls: nil, audio: nil
-                                        )))
-                            }
                         }
                     case .message(let msg):
                         var shouldScroll = false
                         if case .openai(let openAIMsg) = msg,
-                           case .assistant = openAIMsg.role
+                            case .assistant = openAIMsg.role
                         {
-                            if !isFirstChunk {
-                                // Update message by ID instead of index
-                                if let index = chat.messages.firstIndex(where: {
-                                    $0.id == currentStreamingMessageId
-                                }) {
-                                    chat.messages[index] = msg
-                                }
+                            // Update message by ID
+                            if let index = chat.messages.firstIndex(where: {
+                                $0.id == currentStreamingMessageId
+                            }) {
+                                chat.messages[index] = msg
                             } else {
+                                // Append as new message if no streaming message to update
+                                // This handles subsequent assistant messages in multi-turn conversations
                                 chat.messages.append(msg)
                                 shouldScroll = true
                             }
                             // Prepare for next turn
-                            isFirstChunk = true
                             currentAssistantContent = ""
                             currentAssistantId = UUID().uuidString
                             currentStreamingMessageId = nil
@@ -197,6 +323,10 @@ public struct AgentLayout: View {
                 currentStreamingMessageId = nil
             } catch {
                 print("Error sending message: \(error)")
+                // Remove the empty assistant message on error
+                if let msgId = currentStreamingMessageId {
+                    chat.messages.removeAll { $0.id == msgId }
+                }
                 self.error = error
                 self.showAlert = true
                 status = .idle
@@ -214,6 +344,12 @@ public struct AgentLayout: View {
         guard let index = chat.messages.firstIndex(where: { $0.id == messageId }) else {
             return
         }
+
+        // Create the new user message
+        let newMessage = Message.openai(.user(.init(content: newContent)))
+
+        // Notify external handler if exists
+        onEdit?(index, newMessage)
 
         // Remove all messages after and including the edited message
         chat.messages.removeSubrange(index...)
@@ -235,7 +371,7 @@ public struct AgentLayout: View {
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
-               case .user(let userMsg) = openAIMsg
+                case .user(let userMsg) = openAIMsg
             {
                 userMessageContent = userMsg.content
                 break
@@ -254,40 +390,60 @@ public struct AgentLayout: View {
     }
 
     private func handleCancel() {
-        generationTask?.cancel()
-        generationTask = nil
-        status = .idle
+        if let task = generationTask {
+            task.cancel()
+            generationTask = nil
+            status = .idle
 
-        // Emit onMessage callback with partial content
-        if let msgId = currentStreamingMessageId,
-           let index = chat.messages.firstIndex(where: { $0.id == msgId })
-        {
-            onMessage?(chat.messages[index])
+            // Emit onMessage callback with partial content
+            if let msgId = currentStreamingMessageId,
+                let index = chat.messages.firstIndex(where: { $0.id == msgId })
+            {
+                onMessage?(chat.messages[index])
+
+                // Append "Cancelled" user message
+                let userCancelMsg = Message.openai(.user(.init(content: "Cancelled")))
+                chat.messages.append(userCancelMsg)
+            }
+            currentStreamingMessageId = nil
+        } else if isWaitingForToolResult {
+            // User cancelled tool call
+            if let lastAssistantIndex = chat.messages.lastIndex(where: {
+                if case .openai(let m) = $0, case .assistant(let a) = m, let tc = a.toolCalls,
+                    !tc.isEmpty
+                {
+                    return true
+                }
+                return false
+            }) {
+                let assistantMsg = chat.messages[lastAssistantIndex]
+                if case .openai(let m) = assistantMsg, case .assistant(let a) = m,
+                    let toolCalls = a.toolCalls
+                {
+                    for toolCall in toolCalls {
+                        let alreadyResolved = chat.messages.contains { msg in
+                            if case .openai(let m) = msg, case .tool(let t) = m {
+                                return t.toolCallId == toolCall.id
+                            }
+                            return false
+                        }
+
+                        if !alreadyResolved, let id = toolCall.id {
+                            let toolMsg = Message.openai(
+                                .tool(.init(content: Self.REJECT_MESSAGE, toolCallId: id)))
+                            chat.messages.append(toolMsg)
+
+                            // Invoke onMessage callback for the rejection message
+                            onMessage?(toolMsg)
+
+                            Task {
+                                try? await chatProvider?.rejectFunction(id: id)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        currentStreamingMessageId = nil
-    }
-
-    public init(
-        chat: Chat,
-        currentModel: Binding<Model>,
-        currentSource: Binding<Source>,
-        sources: [Source],
-        chatProvider: ChatProvider? = nil,
-        renderMessage: MessageRenderer? = nil,
-        onSend: ((String) -> Void)? = nil,
-        onMessage: ((Message) -> Void)? = nil,
-        tools: [AgentTool] = []
-    ) {
-        self._chat = .init(initialValue: chat)
-        self.initialChat = chat
-        self._currentModel = currentModel
-        self._currentSource = currentSource
-        self.sources = sources
-        self.chatProvider = chatProvider
-        self.renderMessage = renderMessage
-        self.onSend = onSend
-        self.onMessage = onMessage
-        self.tools = tools
     }
 
     public var body: some View {
@@ -296,10 +452,20 @@ public struct AgentLayout: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 5) {
-                            ForEach(chat.messages) { message in
+                            ForEach(
+                                chat.messages.filter { message in
+                                    if case .openai(let openAIMessage) = message,
+                                        case .tool = openAIMessage.role
+                                    {
+                                        return false
+                                    }
+                                    return true
+                                }
+                            ) { message in
                                 if let renderMessage = renderMessage {
                                     let (view, action) = renderMessage(
-                                        message, chat.messages, chatProvider
+                                        message, chat.messages, chatProvider,
+                                        getToolStatus(for: message, in: chat.messages)
                                     )
                                     switch action {
                                     case .replace:
@@ -313,6 +479,11 @@ public struct AgentLayout: View {
                                             status: status,
                                             isLastMessage: message.id == chat.messages.last?.id,
                                             onDelete: {
+                                                if let index = chat.messages.firstIndex(where: {
+                                                    $0.id == message.id
+                                                }) {
+                                                    onDelete?(index)
+                                                }
                                                 withAnimation(.easeInOut(duration: 0.3)) {
                                                     chat.messages.removeAll(where: {
                                                         $0.id == message.id
@@ -331,7 +502,34 @@ public struct AgentLayout: View {
                                         .id(message.id)
                                         view
                                     case .skip:
-                                        EmptyView()
+                                        MessageRow(
+                                            id: message.id,
+                                            message: message,
+                                            messages: chat.messages,
+                                            status: status,
+                                            isLastMessage: message.id == chat.messages.last?.id,
+                                            onDelete: {
+                                                if let index = chat.messages.firstIndex(where: {
+                                                    $0.id == message.id
+                                                }) {
+                                                    onDelete?(index)
+                                                }
+                                                withAnimation(.easeInOut(duration: 0.3)) {
+                                                    chat.messages.removeAll(where: {
+                                                        $0.id == message.id
+                                                    })
+                                                }
+                                            },
+                                            onEdit: { newContent in
+                                                handleEdit(
+                                                    messageId: message.id, newContent: newContent
+                                                )
+                                            },
+                                            onRegenerate: {
+                                                handleRegenerate(messageId: message.id)
+                                            }
+                                        )
+                                        .id(message.id)
                                     }
                                 } else {
                                     MessageRow(
@@ -341,12 +539,21 @@ public struct AgentLayout: View {
                                         status: status,
                                         isLastMessage: message.id == chat.messages.last?.id,
                                         onDelete: {
+                                            if let index = chat.messages.firstIndex(where: {
+                                                $0.id == message.id
+                                            }) {
+                                                onDelete?(index)
+                                            }
                                             withAnimation(.easeInOut(duration: 0.3)) {
-                                                chat.messages.removeAll(where: { $0.id == message.id })
+                                                chat.messages.removeAll(where: {
+                                                    $0.id == message.id
+                                                })
                                             }
                                         },
                                         onEdit: { newContent in
-                                            handleEdit(messageId: message.id, newContent: newContent)
+                                            handleEdit(
+                                                messageId: message.id, newContent: newContent
+                                            )
                                         },
                                         onRegenerate: {
                                             handleRegenerate(messageId: message.id)
@@ -358,6 +565,8 @@ public struct AgentLayout: View {
                         }
                         .padding(.horizontal)
                         .padding(.top, 10)
+                        .frame(maxWidth: contentMaxWidth)
+                        .frame(maxWidth: .infinity)
 
                         VStack {}
                             .frame(height: 200)
@@ -396,13 +605,41 @@ public struct AgentLayout: View {
             }
 
             VStack {
-                ScrollToBottomButton(isAtBottom: isAtBottom) {
-                    scrollToBottom()
+                // Scroll to bottom button
+                if !isAtBottom {
+                    if #available(macOS 26.0, *) {
+                        Button(action: {
+                            withAnimation {
+                                scrollToBottom()
+                            }
+                        }) {
+                            Label("Scroll to button", systemImage: "arrow.down")
+                        }
+                        .padding()
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.capsule)
+                        .transition(.opacity.combined(with: .scale))
+                        .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+
+                    } else {
+                        Button(action: {
+                            withAnimation {
+                                scrollToBottom()
+                            }
+                        }) {
+                            Label("Scroll to button", systemImage: "arrow.down")
+                        }
+                        .padding()
+                        .buttonStyle(.plain)
+                        .buttonBorderShape(.capsule)
+                        .transition(.opacity.combined(with: .scale))
+                        .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+                    }
                 }
 
                 MessageInputView(
                     text: $newMessage,
-                    status: status,
+                    status: isWaitingForToolResult ? .loading : status,
                     currentModel: $currentModel,
                     currentSource: $currentSource,
                     sources: sources,
@@ -414,6 +651,8 @@ public struct AgentLayout: View {
                         handleCancel()
                     }
                 )
+                .frame(maxWidth: contentMaxWidth)
+                .frame(maxWidth: .infinity)
                 .background(
                     GeometryReader { geometry in
                         Color.clear
@@ -463,34 +702,21 @@ public struct AgentLayout: View {
         OpenAICompatibleModel(id: "gpt-4", name: "GPT-4")
     )
 
-    @Previewable @State var currentSource = Source(
-        displayName: "OpenAI",
-        endpoint: "https://api.openai.com/v1",
-        apiKey: "sk-dummy",
-        apiType: .openAI,
+    @Previewable @State var currentSource = Source.openAI(
+        client: OpenAIClient(apiKey: "sk-dummy"),
         models: [
             .openAI(OpenAICompatibleModel(id: "gpt-4", name: "GPT-4")),
             .openAI(OpenAICompatibleModel(id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo")),
         ]
     )
 
-    return AgentLayout(
+    AgentLayout(
         chat: chat,
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [currentSource],
-        onSend: { message in
-            let newMessage = Message.openai(.user(.init(content: message)))
-            chat.messages.append(newMessage)
-
-            // Simulate response
-            Task {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                let response = Message.openai(
-                    .assistant(
-                        .init(content: "This is a mock response to: \(message)", audio: nil)))
-                chat.messages.append(response)
-            }
+        onSend: { _ in
+            // Message is already appended by AgentLayout
         }
     )
 }

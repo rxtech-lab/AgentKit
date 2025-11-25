@@ -40,7 +40,7 @@ extension TextOutputFormat {
         fileprivate init(theme: Splash.Theme) {
             var theme = theme
 
-            theme.plainTextColor = .black
+            theme.plainTextColor = .textColor
             theme.tokenColors[.keyword] = .blue
             theme.tokenColors[.string] = .blue
             theme.tokenColors[.comment] = .gray
@@ -52,7 +52,7 @@ extension TextOutputFormat {
         }
 
         mutating func addToken(_ token: String, ofType type: TokenType) {
-            let color = self.theme.tokenColors[type] ?? .black
+            let color = self.theme.tokenColors[type] ?? .textColor
             self.accumulatedText.append(Text(token).foregroundColor(.init(nsColor: color)))
         }
 
