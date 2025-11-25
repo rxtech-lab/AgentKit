@@ -38,6 +38,23 @@ struct OpenAIRequest: Codable {
     let messages: [OpenAIMessage]
     let stream: Bool
     let tools: [FunctionTool]
+    let reasoning: ReasoningConfig?
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(model, forKey: .model)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(stream, forKey: .stream)
+        try container.encode(tools, forKey: .tools)
+        // Only encode reasoning if it's not nil
+        if let reasoning = reasoning {
+            try container.encode(reasoning, forKey: .reasoning)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model, messages, stream, tools, reasoning
+    }
 }
 
 struct StreamChunk: Codable {
@@ -50,6 +67,12 @@ struct StreamChunk: Codable {
 /// A single choice in a streaming response
 struct StreamChoice: Codable {
     let index: Int
+    let delta: OpenAIAssistantMessage
+    let finishReason: String?
+}
+
+/// A streaming delta with its associated finish reason
+struct StreamDelta: Sendable {
     let delta: OpenAIAssistantMessage
     let finishReason: String?
 }
@@ -116,12 +139,21 @@ public actor OpenAIClient: ChatClient {
                         let stream = await self.streamChat(
                             messages: currentMessages,
                             model: model.id,
-                            tools: openAITools
+                            tools: openAITools,
+                            reasoning: model.reasoningConfig
                         )
 
                         var hasToolCalls = false
+                        var finalFinishReason: String? = nil
 
-                        for try await delta in stream {
+                        for try await streamDelta in stream {
+                            let delta = streamDelta.delta
+
+                            // Capture finish_reason from the final chunk
+                            if let finishReason = streamDelta.finishReason {
+                                finalFinishReason = finishReason
+                            }
+
                             if let content = delta.content {
                                 currentAssistantContent += content
                                 continuation.yield(.textDelta(content))
@@ -185,9 +217,9 @@ public actor OpenAIClient: ChatClient {
                         currentMessages.append(.assistant(assistantMessage))
                         continuation.yield(.message(.openai(.assistant(assistantMessage))))
 
-                        if finalToolCalls.isEmpty {
-                            keepGoing = false
-                        } else {
+                        // Use finish_reason to determine loop control
+                        // Check for tool calls first, regardless of finish_reason
+                        if !finalToolCalls.isEmpty {
                             // Check for UI tools
                             let hasUITool = finalToolCalls.contains { call in
                                 guard let name = call.function?.name else { return false }
@@ -264,6 +296,15 @@ public actor OpenAIClient: ChatClient {
                                     }
                                 }
                             }
+                        } else {
+                            // No tool calls - check finish_reason to determine if we should stop
+                            if finalFinishReason == "stop" || finalFinishReason == nil || finalFinishReason == "length" || finalFinishReason == "content_filter" {
+                                // Stop conditions: normal completion, no reason, length limit, or content filter
+                                keepGoing = false
+                            } else {
+                                // Unknown finish_reason without tool calls - stop
+                                keepGoing = false
+                            }
                         }
                     } catch {
                         continuation.finish(throwing: error)
@@ -305,8 +346,9 @@ public actor OpenAIClient: ChatClient {
     func streamChat(
         messages: [OpenAIMessage],
         model: String,
-        tools: [OpenAITool] = []
-    ) -> AsyncThrowingStream<OpenAIAssistantMessage, Error> {
+        tools: [OpenAITool] = [],
+        reasoning: ReasoningConfig? = nil
+    ) -> AsyncThrowingStream<StreamDelta, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -316,7 +358,8 @@ public actor OpenAIClient: ChatClient {
                         stream: true,
                         tools: tools.map {
                             OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
+                        },
+                        reasoning: reasoning
                     )
 
                     let responseStream = try await makeRequest(body: requestBody)
@@ -326,9 +369,12 @@ public actor OpenAIClient: ChatClient {
                             let data = line.dropFirst(6).data(using: .utf8)
                         {
                             if let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
-                                let delta = json.choices.first?.delta
+                                let choice = json.choices.first
                             {
-                                continuation.yield(delta)
+                                continuation.yield(StreamDelta(
+                                    delta: choice.delta,
+                                    finishReason: choice.finishReason
+                                ))
                             }
                         }
                     }
@@ -361,7 +407,8 @@ public actor OpenAIClient: ChatClient {
                         stream: true,
                         tools: tools.map {
                             OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
+                        },
+                        reasoning: model.reasoningConfig
                     )
 
                     let responseStream = try await makeRequest(body: requestBody)

@@ -62,7 +62,7 @@ public actor AgentClient {
 
     private func createClient(for model: Model, source: Source) throws -> any ChatClient {
         switch model {
-        case .openAI, .custom:
+        case .openAI:
             if case .openAI(let client, _) = source {
                 return client
             }
@@ -72,6 +72,9 @@ public actor AgentClient {
                 return client
             }
             throw AgentClientError.invalidSource
+        case .custom:
+            // Custom models can work with any source type
+            return source.client
         }
     }
 

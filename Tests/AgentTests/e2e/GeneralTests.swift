@@ -12,72 +12,6 @@ struct TestError: Error {
 
 struct IntegrationTests {
 
-    func setUpTests() async throws -> (AgentClient, Source, Model) {
-        let env = loadEnv()
-        let apiKey = env["OPENAI_API_KEY"] ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
-        let endpoint = env["OPENAI_API_BASE_URL"]
-        let modelName = env["OPENAI_MODEL"]
-
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            // fail the test
-            #expect(Bool(false), "OPENAI_API_KEY not found in .env or environment")
-            throw TestError("OPENAI_API_KEY not found in .env or environment")
-        }
-        guard let endpoint = endpoint, !endpoint.isEmpty else {
-            // fail the test
-            #expect(Bool(false), "OPENAI_API_BASE_URL not found in .env or environment")
-            throw TestError("OPENAI_API_BASE_URL not found in .env or environment")
-        }
-        guard let modelName = modelName, !modelName.isEmpty else {
-            // fail the test
-            #expect(Bool(false), "OPENAI_MODEL not found in .env or environment")
-            throw TestError("OPENAI_MODEL not found in .env or environment")
-        }
-        let baseURL = URL(string: endpoint)!
-        let source = Source.openAI(
-            client: OpenAIClient(apiKey: apiKey, baseURL: baseURL),
-            models: []
-        )
-        let client = AgentClient()
-        let model = Model.custom(CustomModel(id: modelName))
-        return (client, source, model)
-    }
-
-    // Helper to load .env file
-    private func loadEnv() -> [String: String] {
-        let fileManager = FileManager.default
-        // Try to find .env in the project root
-        // Start from the current file path and go up
-        var currentURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-
-        // Go up until we find .env or hit root
-        while currentURL.pathComponents.count > 1 {
-            let envURL = currentURL.appendingPathComponent(".env")
-            if fileManager.fileExists(atPath: envURL.path) {
-                do {
-                    let contents = try String(contentsOf: envURL, encoding: .utf8)
-                    var env: [String: String] = [:]
-                    contents.enumerateLines { line, _ in
-                        let parts = line.split(separator: "=", maxSplits: 1).map(String.init)
-                        if parts.count == 2 {
-                            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                            // Remove quotes if present
-                            let cleanValue = value.trimmingCharacters(
-                                in: CharacterSet(charactersIn: "\"'"))
-                            env[key] = cleanValue
-                        }
-                    }
-                    return env
-                } catch {
-                    print("Error reading .env: \(error)")
-                }
-            }
-            currentURL = currentURL.deletingLastPathComponent()
-        }
-        return [:]
-    }
-
     @Test
     func testRealOpenAIToolCall() async throws {
         // 1. Load configuration
@@ -136,7 +70,6 @@ struct IntegrationTests {
 
                     // Check for tool execution result (which comes as a tool message from the client)
                     if case .tool(let toolMsg) = openAIMsg {
-                        print("Tool result: \(toolMsg.content)")
                         if toolMsg.content == "12" {
                             toolCalled = true
                         }
@@ -381,33 +314,91 @@ struct IntegrationTests {
     }
 
     @Test
-    func testGeminiModelWithReasoning() async throws {
-        // 1. Load configuration
-        let (client, source, _) = try await setUpTests()
-        // 3. Define a tool
+    func testMultipleToolCallsWithAssistantMessage() async throws {
 
-        // 4. Run agent
+        struct Tool1Input: Decodable {
+            let a: Int
+        }
+
+        struct Tool2Input: Decodable {
+            let b: Int
+        }
+
+        actor ToolCallTracker {
+            var tool1Called = false
+            var tool2Called = false
+
+            func tool1Called() async {
+                tool1Called = true
+            }
+
+            func tool2Called() async {
+                tool2Called = true
+            }
+        }
+
+        let (client, source, model) = try await setUpTests()
+
+        let toolCallTracker = ToolCallTracker()
+
+        let tool1 = AgentTool(
+            name: "tool1",
+            description: "Tool 1",
+            parameters: .object(properties: ["a": .integer()], required: ["a"])
+        ) { (args: Tool1Input) async in
+            await toolCallTracker.tool1Called()
+            return args.a + 1
+        }
+
+        let tool2 = AgentTool(
+            name: "tool2",
+            description: "Tool 2",
+            parameters: .object(properties: ["b": .integer()], required: ["b"])
+        ) { (args: Tool2Input) in
+            await toolCallTracker.tool2Called()
+            return args.b + 2
+        }
+
         let messages: [Message] = [
-            .openai(.user(.init(content: "Please reason about the user's request.")))
+            .openai(
+                .system(
+                    .init(
+                        content:
+                            "Call the tool1 then tool2 in sequence. Return the result of the second tool."
+                    ))),
+            .openai(.user(.init(content: "Use tool 1 with input 5"))),
         ]
 
         let stream = await client.process(
             messages: messages,
-            model: .custom(CustomModel(id: "google/gemini-3-pro-preview")),
+            model: model,
             source: source,
-            tools: []
+            tools: [tool1, tool2]
         )
 
-        var finalContent = ""
-
+        var generatedMessages: [OpenAIMessage] = []
         for try await part in stream {
             if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
-                if case .assistant(let am) = openAIMsg, let content = am.content {
-                    finalContent += content
-                }
+                generatedMessages.append(openAIMsg)
             }
         }
-        #expect(
-            finalContent.count > 0)
+        #expect(await toolCallTracker.tool1Called, "The tool1 tool should have been called")
+        #expect(await toolCallTracker.tool2Called, "The tool2 tool should have been called")
+
+        // check we have 2 tool call message
+        let toolMessages: [OpenAIToolMessage] = generatedMessages.filter { $0.role == .tool }
+            .map { if case .tool(let toolMsg) = $0 { return toolMsg } else { return nil } }
+            .compactMap { $0 }
+
+        let toolCallMessages = toolMessages.filter { $0.toolCallId.isEmpty }
+        #expect(toolCallMessages.count == 2, "Should have 2 tool call messages")
+
+        let toolResultMessages = toolMessages.filter { !$0.toolCallId.isEmpty }
+        #expect(toolResultMessages.count == 2, "Should have 2 tool result messages")
+
+        let lastMessage = generatedMessages.last
+        // make sure the last message is an assistant message
+        #expect(lastMessage?.role == .assistant, "Last message should be an assistant message")
     }
+
 }

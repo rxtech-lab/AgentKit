@@ -35,6 +35,27 @@ public struct Pricing: Sendable, Hashable {
     public let internalReasoning: Double
 }
 
+/// Configuration for extended thinking/reasoning tokens.
+/// When enabled, the model will use extended thinking to reason through complex problems.
+/// The reasoning content is preserved across tool calls to maintain context.
+///
+/// Note: Only models that include "reasoning" in their `supportedParameters` can use this feature.
+public struct ReasoningConfig: Sendable, Hashable, Codable {
+    /// Maximum number of tokens to use for reasoning
+    public let maxTokens: Int
+
+    /// Default reasoning configuration with 2000 tokens
+    public static let `default` = ReasoningConfig(maxTokens: 2000)
+
+    private enum CodingKeys: String, CodingKey {
+        case maxTokens = "max_tokens"
+    }
+
+    public init(maxTokens: Int) {
+        self.maxTokens = maxTokens
+    }
+}
+
 /// A model that implements the OpenAI model interface with additional OpenRouter-specific fields.
 /// While maintaining compatibility with OpenAI's interface, this model includes extra properties
 /// defined by OpenRouter to support additional functionality and metadata.
@@ -60,12 +81,20 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
     public let perRequestLimits: [String: String]?
     /// Parameters that can be configured when using this model
     public let supportedParameters: [String]?
+    /// Configuration for extended thinking/reasoning tokens.
+    /// Set this to enable reasoning for models that support it (those with "reasoning" in supportedParameters).
+    public let reasoningConfig: ReasoningConfig?
+
+    /// Whether this model supports reasoning based on its supportedParameters
+    public var supportsReasoning: Bool {
+        supportedParameters?.contains("reasoning") ?? false
+    }
 
     public init(
         id: String, name: String? = nil, created: Int? = nil, description: String? = nil,
         architecture: Architecture? = nil, pricing: Pricing? = nil, contextLength: Int? = nil,
         huggingFaceId: String? = nil, perRequestLimits: [String: String]? = nil,
-        supportedParameters: [String]? = nil
+        supportedParameters: [String]? = nil, reasoningConfig: ReasoningConfig? = nil
     ) {
         self.id = id
         self.name = name
@@ -77,6 +106,7 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
         self.huggingFaceId = huggingFaceId
         self.perRequestLimits = perRequestLimits
         self.supportedParameters = supportedParameters
+        self.reasoningConfig = reasoningConfig
     }
 }
 
@@ -152,6 +182,30 @@ public enum Model: Identifiable, Hashable, Sendable {
             return model.name ?? model.id
         case .custom(let model):
             return model.id
+        }
+    }
+
+    /// Get the reasoning configuration for this model.
+    /// If the user specified a config, use it. Otherwise, auto-enable with default config
+    /// if the model supports reasoning (has "reasoning" in supportedParameters).
+    public var reasoningConfig: ReasoningConfig? {
+        switch self {
+        case .openAI(let model):
+            // If user specified a config, use it
+            if let config = model.reasoningConfig {
+                return config
+            }
+            // Otherwise, auto-enable if model supports reasoning
+            return model.supportsReasoning ? .default : nil
+        case .openRouter(let model):
+            // If user specified a config, use it
+            if let config = model.reasoningConfig {
+                return config
+            }
+            // Otherwise, auto-enable if model supports reasoning
+            return model.supportsReasoning ? .default : nil
+        case .custom:
+            return nil
         }
     }
 }

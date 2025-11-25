@@ -99,12 +99,21 @@ public actor OpenRouterClient: ChatClient {
                         let stream = await self.streamChat(
                             messages: currentMessages,
                             model: model.id,
-                            tools: openAITools
+                            tools: openAITools,
+                            reasoning: model.reasoningConfig
                         )
 
                         var hasToolCalls = false
+                        var finalFinishReason: String? = nil
 
-                        for try await delta in stream {
+                        for try await streamDelta in stream {
+                            let delta = streamDelta.delta
+
+                            // Capture finish_reason from the final chunk
+                            if let finishReason = streamDelta.finishReason {
+                                finalFinishReason = finishReason
+                            }
+
                             if let content = delta.content {
                                 currentAssistantContent += content
                                 continuation.yield(.textDelta(content))
@@ -168,9 +177,9 @@ public actor OpenRouterClient: ChatClient {
                         currentMessages.append(.assistant(assistantMessage))
                         continuation.yield(.message(.openai(.assistant(assistantMessage))))
 
-                        if finalToolCalls.isEmpty {
-                            keepGoing = false
-                        } else {
+                        // Use finish_reason to determine loop control
+                        // Check for tool calls first, regardless of finish_reason
+                        if !finalToolCalls.isEmpty {
                             // Check for UI tools
                             let hasUITool = finalToolCalls.contains { call in
                                 guard let name = call.function?.name else { return false }
@@ -247,6 +256,15 @@ public actor OpenRouterClient: ChatClient {
                                     }
                                 }
                             }
+                        } else {
+                            // No tool calls - check finish_reason to determine if we should stop
+                            if finalFinishReason == "stop" || finalFinishReason == nil || finalFinishReason == "length" || finalFinishReason == "content_filter" {
+                                // Stop conditions: normal completion, no reason, length limit, or content filter
+                                keepGoing = false
+                            } else {
+                                // Unknown finish_reason without tool calls - stop
+                                keepGoing = false
+                            }
                         }
                     } catch {
                         continuation.finish(throwing: error)
@@ -296,8 +314,9 @@ public actor OpenRouterClient: ChatClient {
     func streamChat(
         messages: [OpenAIMessage],
         model: String,
-        tools: [OpenAITool] = []
-    ) -> AsyncThrowingStream<OpenAIAssistantMessage, Error> {
+        tools: [OpenAITool] = [],
+        reasoning: ReasoningConfig? = nil
+    ) -> AsyncThrowingStream<StreamDelta, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -307,7 +326,8 @@ public actor OpenRouterClient: ChatClient {
                         stream: true,
                         tools: tools.map {
                             OpenAIRequest.FunctionTool(type: "function", function: $0)
-                        }
+                        },
+                        reasoning: reasoning
                     )
 
                     let responseStream = try await makeRequest(body: requestBody)
@@ -317,9 +337,12 @@ public actor OpenRouterClient: ChatClient {
                             let data = line.dropFirst(6).data(using: .utf8)
                         {
                             if let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
-                                let delta = json.choices.first?.delta
+                                let choice = json.choices.first
                             {
-                                continuation.yield(delta)
+                                continuation.yield(StreamDelta(
+                                    delta: choice.delta,
+                                    finishReason: choice.finishReason
+                                ))
                             }
                         }
                     }
