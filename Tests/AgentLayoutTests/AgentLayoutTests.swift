@@ -725,9 +725,13 @@ final class AgentLayoutIntegrationTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        try await app.asyncShutdown()
+        if let app = app {
+            try? await app.asyncShutdown()
+        }
         app = nil
         controller = nil
+        // Small delay to ensure port is released
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
     }
 
     @MainActor
@@ -748,11 +752,23 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         let model = Model.openAI(.init(id: "gpt-4"))
         let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
+        // Track if onMessage was called with rejection
+        var rejectionMessageReceived = false
+        let onMessage: (Message) -> Void = { message in
+            if case .openai(let openAIMsg) = message,
+               case .tool(let toolMsg) = openAIMsg,
+               toolMsg.content == AgentLayout.REJECT_MESSAGE
+            {
+                rejectionMessageReceived = true
+            }
+        }
+
         let sut = AgentLayout(
             chat: chat,
             currentModel: .constant(model),
             currentSource: .constant(source),
-            sources: [source]
+            sources: [source],
+            onMessage: onMessage
         )
 
         ViewHosting.host(view: sut)
@@ -768,16 +784,8 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // 2. Click stop/cancel button
         try inputView.actualView().onCancel()
 
-        // 3. Verify rejection message appended is not easily possible directly without re-inspecting or checking state
-        // But since handleCancel logic is tested, we can assume it works if the button is wired.
-
-        // Re-inspect to check for cancellation message
-        let updatedView = try sut.inspect()
-
-        // Verify the input is no longer in loading state (cancel was processed)
-        let updatedInputView = try updatedView.find(MessageInputView.self)
-        let updatedStatus = try updatedInputView.actualView().status
-        XCTAssertEqual(updatedStatus, .idle, "Input should be idle after cancellation")
+        // 3. Verify the cancel handler was triggered by checking if rejection message was sent
+        XCTAssertTrue(rejectionMessageReceived, "Cancel should emit a rejection message via onMessage callback")
     }
 
     @MainActor

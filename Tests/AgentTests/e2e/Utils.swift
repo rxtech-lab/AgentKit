@@ -41,8 +41,9 @@ private func loadEnv() -> [String: String] {
 func setUpTests() async throws -> (AgentClient, Source, Model) {
     let env = loadEnv()
     let apiKey = env["OPENAI_API_KEY"] ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
-    let endpoint = env["OPENAI_API_BASE_URL"]
-    let modelName = env["OPENAI_MODEL"]
+    let endpoint =
+        env["OPENAI_API_BASE_URL"] ?? ProcessInfo.processInfo.environment["OPENAI_API_BASE_URL"]
+    let modelName = env["OPENAI_MODEL"] ?? ProcessInfo.processInfo.environment["OPENAI_MODEL"]
 
     guard let apiKey = apiKey, !apiKey.isEmpty else {
         // fail the test

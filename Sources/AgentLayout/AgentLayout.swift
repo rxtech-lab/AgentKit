@@ -65,6 +65,7 @@ public struct AgentLayout: View {
     let onEdit: ((Int, Message) -> Void)?
     let tools: [any AgentToolProtocol]
     let systemPrompt: String?
+    let contentMaxWidth: CGFloat
 
     public init(
         systemPrompt: String? = nil,
@@ -78,7 +79,8 @@ public struct AgentLayout: View {
         onMessage: ((Message) -> Void)? = nil,
         onDelete: ((Int) -> Void)? = nil,
         onEdit: ((Int, Message) -> Void)? = nil,
-        tools: [any AgentToolProtocol] = []
+        tools: [any AgentToolProtocol] = [],
+        contentMaxWidth: CGFloat = 800
     ) {
         self._chat = .init(initialValue: chat)
         self.initialChat = chat
@@ -93,6 +95,7 @@ public struct AgentLayout: View {
         self.onEdit = onEdit
         self.tools = tools
         self.systemPrompt = systemPrompt
+        self.contentMaxWidth = contentMaxWidth
     }
 
     // MARK: - Private Methods
@@ -562,6 +565,8 @@ public struct AgentLayout: View {
                         }
                         .padding(.horizontal)
                         .padding(.top, 10)
+                        .frame(maxWidth: contentMaxWidth)
+                        .frame(maxWidth: .infinity)
 
                         VStack {}
                             .frame(height: 200)
@@ -646,6 +651,8 @@ public struct AgentLayout: View {
                         handleCancel()
                     }
                 )
+                .frame(maxWidth: contentMaxWidth)
+                .frame(maxWidth: .infinity)
                 .background(
                     GeometryReader { geometry in
                         Color.clear

@@ -38,10 +38,14 @@ final class OpenAIClientTests: XCTestCase {
 
     override func tearDown() async throws {
         // Shut down the server
-        try await app.asyncShutdown()
+        if let app = app {
+            try? await app.asyncShutdown()
+        }
         app = nil
         controller = nil
         client = nil
+        // Small delay to ensure port is released
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
     }
 
     @MainActor

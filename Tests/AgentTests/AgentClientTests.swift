@@ -25,9 +25,13 @@ final class AgentClientTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        try await app.asyncShutdown()
+        if let app = app {
+            try? await app.asyncShutdown()
+        }
         app = nil
         controller = nil
+        // Small delay to ensure port is released
+        try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
     }
 
     func testMultiTurnConversationWithTools() async throws {
