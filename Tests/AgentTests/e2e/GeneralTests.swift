@@ -367,9 +367,9 @@ struct IntegrationTests {
                 .system(
                     .init(
                         content:
-                            "Call the tool1 then tool2 in sequence. Return the result of the second tool."
+                            "You MUST call tool1 first, then call tool2. Both tools must be called in sequence. Return the result of the second tool."
                     ))),
-            .openai(.user(.init(content: "Use tool 1 with input 5"))),
+            .openai(.user(.init(content: "Call tool1 with a=5, then call tool2 with b=10"))),
         ]
 
         let stream = await client.process(
@@ -388,14 +388,14 @@ struct IntegrationTests {
         #expect(await toolCallTracker.tool1Called, "The tool1 tool should have been called")
         #expect(await toolCallTracker.tool2Called, "The tool2 tool should have been called")
 
-        // Check we have assistant messages with tool calls
-        let assistantMessagesWithToolCalls = generatedMessages.filter { msg in
-            if case .assistant(let assistantMsg) = msg, let toolCalls = assistantMsg.toolCalls, !toolCalls.isEmpty {
-                return true
+        // Check we have assistant messages with tool calls (total tool calls >= 2, may be in one or multiple messages)
+        let totalToolCalls = generatedMessages.reduce(0) { count, msg in
+            if case .assistant(let assistantMsg) = msg, let toolCalls = assistantMsg.toolCalls {
+                return count + toolCalls.count
             }
-            return false
+            return count
         }
-        #expect(assistantMessagesWithToolCalls.count >= 2, "Should have at least 2 assistant messages with tool calls")
+        #expect(totalToolCalls >= 2, "Should have at least 2 tool calls total")
 
         // Check we have tool result messages
         let toolMessages: [OpenAIToolMessage] = generatedMessages.filter { $0.role == .tool }

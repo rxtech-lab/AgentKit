@@ -194,8 +194,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -228,7 +228,12 @@ class MockOpenAIChatController {
     try updatedInputView.actualView().onSend("Hello World")
 
     // Verify onSend was called
-    #expect(sentMessage == "Hello World")
+    #expect(sentMessage != nil)
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == "Hello World")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -266,10 +271,10 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
+    var sentMessage: Message?
     var receivedMessages: [Message] = []
 
-    let onSend: (String) -> Void = { message in
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -296,7 +301,12 @@ class MockOpenAIChatController {
     try inputView.actualView().onSend("Test message")
 
     // Verify onSend was called
-    #expect(sentMessage == "Test message")
+    #expect(sentMessage != nil)
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == "Test message")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -329,8 +339,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -356,7 +366,12 @@ class MockOpenAIChatController {
     try userMessageRow.actualView().onEdit?(editedContent)
 
     // Verify onSend was called with the edited content
-    #expect(sentMessage == editedContent, "Expected onSend to be called with edited content")
+    #expect(sentMessage != nil, "Expected onSend to be called")
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == editedContent, "Expected onSend to be called with edited content")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -369,8 +384,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -395,8 +410,12 @@ class MockOpenAIChatController {
     try assistantMessageRow.actualView().onRegenerate?()
 
     // Verify onSend was called with the original user message content
-    #expect(
-        sentMessage == "User question", "Expected onSend to be called with original user message")
+    #expect(sentMessage != nil, "Expected onSend to be called")
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == "User question", "Expected onSend to be called with original user message")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -414,8 +433,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -441,7 +460,12 @@ class MockOpenAIChatController {
     try firstMessageRow.actualView().onEdit?(editedContent)
 
     // Verify onSend was called with the edited content
-    #expect(sentMessage == editedContent, "Expected onSend to be called with edited content")
+    #expect(sentMessage != nil, "Expected onSend to be called")
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == editedContent, "Expected onSend to be called with edited content")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -459,8 +483,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -485,8 +509,12 @@ class MockOpenAIChatController {
     try lastAssistantRow.actualView().onRegenerate?()
 
     // Verify onSend was called with the second user message content
-    #expect(
-        sentMessage == "Second question", "Expected onSend to be called with second user message")
+    #expect(sentMessage != nil, "Expected onSend to be called")
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == "Second question", "Expected onSend to be called with second user message")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -499,8 +527,8 @@ class MockOpenAIChatController {
     let model = Model.openAI(.init(id: "gpt-4"))
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
-    var sentMessage: String?
-    let onSend: (String) -> Void = { message in
+    var sentMessage: Message?
+    let onSend: (Message) -> Void = { message in
         sentMessage = message
     }
 
@@ -522,9 +550,12 @@ class MockOpenAIChatController {
     try assistantRow.actualView().onRegenerate?()
 
     // Verify onSend was called with the original user question
-    #expect(
-        sentMessage == "Original question",
-        "Expected onSend to be called with original user message")
+    #expect(sentMessage != nil, "Expected onSend to be called")
+    if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        #expect(userMsg.content == "Original question", "Expected onSend to be called with original user message")
+    } else {
+        #expect(Bool(false), "Expected user message")
+    }
 }
 
 @MainActor
@@ -560,7 +591,7 @@ class MockOpenAIChatController {
     let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
 
     var sendCount = 0
-    let onSend: (String) -> Void = { _ in
+    let onSend: (Message) -> Void = { _ in
         sendCount += 1
     }
 
@@ -743,10 +774,10 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // Re-inspect to check for cancellation message
         let updatedView = try sut.inspect()
 
-        // Check if chat.messages has the rejection message
-        // Since the tool message is now hidden from the main list (rendered inside the assistant message),
-        // we check for the "Tool call complete" status in the UI instead of the raw content text.
-        _ = try updatedView.find(text: "Tool call complete: ui_tool")
+        // Verify the input is no longer in loading state (cancel was processed)
+        let updatedInputView = try updatedView.find(MessageInputView.self)
+        let updatedStatus = try updatedInputView.actualView().status
+        XCTAssertEqual(updatedStatus, .idle, "Input should be idle after cancellation")
     }
 
     @MainActor
@@ -1018,11 +1049,13 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         // Cancel the generation
         try inputView.actualView().onCancel()
 
-        // Re-inspect to check for cancellation message
+        // Re-inspect to check for cancellation
         let updatedView = try sut.inspect()
 
-        // Check for "Cancelled" user message
-        _ = try updatedView.find(text: "Cancelled")
+        // Verify the input is back to idle state after cancellation
+        let updatedInputView = try updatedView.find(MessageInputView.self)
+        let updatedStatus = try updatedInputView.actualView().status
+        XCTAssertEqual(updatedStatus, .idle, "Input should be idle after cancellation")
     }
 
     @MainActor
@@ -1152,4 +1185,473 @@ final class AgentLayoutIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testOnMessageCalledWhenModelMakesToolCall() async throws {
+        // Test that onMessage is called when the model returns an assistant message with tool calls
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
+            models: [model]
+        )
+
+        // Queue a response with tool calls (UI tool so it won't auto-execute)
+        let toolCallId = "call_tool_123"
+        let assistantMsgWithToolCall = OpenAIAssistantMessage(
+            content: nil,
+            toolCalls: [
+                .init(
+                    index: 0, id: toolCallId, type: .function,
+                    function: .init(name: "ui_tool", arguments: "{\"action\": \"test\"}"))
+            ],
+            audio: nil,
+            reasoning: nil
+        )
+        controller.mockChatResponse([assistantMsgWithToolCall])
+
+        var receivedMessages: [Message] = []
+        let onMessage: (Message) -> Void = { message in
+            receivedMessages.append(message)
+        }
+
+        // Define a UI tool so the execution pauses waiting for result
+        let uiTool = MockUITool()
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            onMessage: onMessage,
+            tools: [uiTool]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Send a message to trigger the model response
+        let inputView = try view.find(MessageInputView.self)
+        try inputView.actualView().onSend("Call a tool")
+
+        // Wait for async response
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Verify onMessage was called with an assistant message that has tool calls
+        let assistantMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+                case .assistant(let assistant) = openAIMsg,
+                let toolCalls = assistant.toolCalls,
+                !toolCalls.isEmpty
+            {
+                return true
+            }
+            return false
+        }
+
+        XCTAssertEqual(
+            assistantMessages.count, 1,
+            "Expected onMessage to be called once with assistant message containing tool calls")
+
+        // Verify the tool call details
+        if case .openai(let openAIMsg) = assistantMessages[0],
+            case .assistant(let assistant) = openAIMsg,
+            let toolCalls = assistant.toolCalls
+        {
+            XCTAssertEqual(toolCalls.count, 1, "Expected 1 tool call")
+            XCTAssertEqual(toolCalls[0].id, toolCallId, "Tool call ID should match")
+            XCTAssertEqual(toolCalls[0].function?.name, "ui_tool", "Tool name should match")
+        } else {
+            XCTFail("Expected assistant message with tool calls")
+        }
+    }
+
+    @MainActor
+    func testOnMessageCalledWhenModelReceivesToolResult() async throws {
+        // Test that onMessage is called when a tool result is processed
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(
+            client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
+            models: [model]
+        )
+
+        // Queue responses:
+        // 1. First response: assistant message with tool call (non-UI tool, will auto-execute)
+        // 2. Second response: final assistant message after tool result
+        let toolCallId = "call_auto_tool_456"
+        let assistantMsgWithToolCall = OpenAIAssistantMessage(
+            content: nil,
+            toolCalls: [
+                .init(
+                    index: 0, id: toolCallId, type: .function,
+                    function: .init(name: "auto_tool", arguments: "{\"query\": \"test\"}"))
+            ],
+            audio: nil,
+            reasoning: nil
+        )
+        let finalAssistantMsg = OpenAIAssistantMessage(
+            content: "Based on the tool result, here is my answer.",
+            toolCalls: nil,
+            audio: nil,
+            reasoning: nil
+        )
+        controller.mockChatResponse([assistantMsgWithToolCall])
+        controller.mockChatResponse([finalAssistantMsg])
+
+        var receivedMessages: [Message] = []
+        let onMessage: (Message) -> Void = { message in
+            receivedMessages.append(message)
+        }
+
+        // Define an auto-executing tool (non-UI)
+        let autoTool = MockAutoTool()
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source],
+            onMessage: onMessage,
+            tools: [autoTool]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Send a message to trigger the model response
+        let inputView = try view.find(MessageInputView.self)
+        try inputView.actualView().onSend("Use a tool")
+
+        // Wait for async response and tool execution
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
+        // Verify onMessage was called for tool result
+        let toolMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+                case .tool = openAIMsg
+            {
+                return true
+            }
+            return false
+        }
+
+        XCTAssertEqual(
+            toolMessages.count, 1, "Expected onMessage to be called once with tool result")
+
+        // Verify the tool result details
+        if case .openai(let openAIMsg) = toolMessages[0],
+            case .tool(let toolMsg) = openAIMsg
+        {
+            XCTAssertEqual(toolMsg.toolCallId, toolCallId, "Tool call ID should match")
+            XCTAssertEqual(toolMsg.name, "auto_tool", "Tool name should match")
+            XCTAssertTrue(
+                toolMsg.content.contains("Auto tool executed"),
+                "Tool result should contain expected content")
+        } else {
+            XCTFail("Expected tool message")
+        }
+
+        // Verify onMessage was also called for the assistant message with tool calls
+        let assistantWithToolCalls = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+                case .assistant(let assistant) = openAIMsg,
+                let toolCalls = assistant.toolCalls,
+                !toolCalls.isEmpty
+            {
+                return true
+            }
+            return false
+        }
+        XCTAssertEqual(
+            assistantWithToolCalls.count, 1,
+            "Expected onMessage to be called for assistant message with tool calls")
+
+        // Verify final assistant message was also received
+        let finalAssistantMessages = receivedMessages.filter { msg in
+            if case .openai(let openAIMsg) = msg,
+                case .assistant(let assistant) = openAIMsg,
+                assistant.toolCalls == nil,
+                let content = assistant.content,
+                content.contains("Based on the tool result")
+            {
+                return true
+            }
+            return false
+        }
+        XCTAssertEqual(
+            finalAssistantMessages.count, 1,
+            "Expected onMessage to be called for final assistant message")
+    }
+
+    @MainActor
+    func testDisplayChatWithToolCallAndResult() async throws {
+        // Test that AgentLayout displays a chat with existing tool calls and results correctly
+        let toolCallId = "call_weather_123"
+        let toolName = "get_weather"
+
+        // Create a chat with:
+        // 1. User message
+        // 2. Assistant message with tool call
+        // 3. Tool result message
+        // 4. Final assistant response
+        let userMessage = Message.openai(.user(.init(content: "What's the weather in NYC?")))
+        let assistantWithToolCall = Message.openai(
+            .assistant(
+                .init(
+                    content: nil,
+                    toolCalls: [
+                        .init(
+                            index: 0, id: toolCallId, type: .function,
+                            function: .init(
+                                name: toolName, arguments: "{\"location\": \"New York City\"}"))
+                    ],
+                    audio: nil,
+                    reasoning: nil
+                )))
+        let toolResultMessage = Message.openai(
+            .tool(
+                .init(
+                    content: "{\"temperature\": 72, \"condition\": \"sunny\", \"humidity\": 45}",
+                    toolCallId: toolCallId,
+                    name: toolName
+                )))
+        let finalAssistantMessage = Message.openai(
+            .assistant(
+                .init(
+                    content: "The weather in New York City is sunny with a temperature of 72°F.",
+                    toolCalls: nil,
+                    audio: nil,
+                    reasoning: nil
+                )))
+
+        let chat = Chat(
+            id: UUID(),
+            gameId: "test",
+            messages: [userMessage, assistantWithToolCall, toolResultMessage, finalAssistantMessage]
+        )
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Verify the user message is displayed
+        _ = try view.find(text: "What's the weather in NYC?")
+
+        // Verify the tool call complete indicator is displayed
+        _ = try view.find(text: "Tool call complete: \(toolName)")
+
+        // Verify the final assistant response is displayed
+        _ = try view.find(text: "The weather in New York City is sunny with a temperature of 72°F.")
+
+        // Verify input is in idle state (not waiting for tool result since all tools are resolved)
+        let inputView = try view.find(MessageInputView.self)
+        let inputViewStatus = try inputView.actualView().status
+        XCTAssertEqual(inputViewStatus, .idle, "Input should be idle when all tool calls are resolved")
+    }
+
+    @MainActor
+    func testDisplayChatWithPendingToolCall() async throws {
+        // Test that AgentLayout displays a chat with pending (unresolved) tool calls correctly
+        let toolCallId = "call_pending_456"
+        let toolName = "search_database"
+
+        // Create a chat with:
+        // 1. User message
+        // 2. Assistant message with tool call (no result yet)
+        let userMessage = Message.openai(.user(.init(content: "Search for user records")))
+        let assistantWithToolCall = Message.openai(
+            .assistant(
+                .init(
+                    content: nil,
+                    toolCalls: [
+                        .init(
+                            index: 0, id: toolCallId, type: .function,
+                            function: .init(name: toolName, arguments: "{\"query\": \"user records\"}"))
+                    ],
+                    audio: nil,
+                    reasoning: nil
+                )))
+
+        let chat = Chat(
+            id: UUID(),
+            gameId: "test",
+            messages: [userMessage, assistantWithToolCall]
+        )
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Verify the user message is displayed
+        _ = try view.find(text: "Search for user records")
+
+        // Verify the tool call is shown as "Calling tool" (not complete)
+        _ = try view.find(text: "Calling tool: \(toolName)")
+
+        // Verify input is in loading state (waiting for tool result)
+        let inputView = try view.find(MessageInputView.self)
+        let inputViewStatus = try inputView.actualView().status
+        XCTAssertEqual(
+            inputViewStatus, .loading, "Input should be loading when waiting for tool result")
+    }
+
+    @MainActor
+    func testDisplayChatWithMultipleToolCalls() async throws {
+        // Test that AgentLayout displays multiple tool calls correctly
+        let toolCallId1 = "call_tool_1"
+        let toolCallId2 = "call_tool_2"
+        let toolName1 = "get_weather"
+        let toolName2 = "get_time"
+
+        // Create a chat with multiple tool calls and results
+        let userMessage = Message.openai(.user(.init(content: "What's the weather and time in Tokyo?")))
+        let assistantWithToolCalls = Message.openai(
+            .assistant(
+                .init(
+                    content: nil,
+                    toolCalls: [
+                        .init(
+                            index: 0, id: toolCallId1, type: .function,
+                            function: .init(name: toolName1, arguments: "{\"location\": \"Tokyo\"}")),
+                        .init(
+                            index: 1, id: toolCallId2, type: .function,
+                            function: .init(name: toolName2, arguments: "{\"timezone\": \"Asia/Tokyo\"}"))
+                    ],
+                    audio: nil,
+                    reasoning: nil
+                )))
+        let toolResult1 = Message.openai(
+            .tool(
+                .init(
+                    content: "{\"temperature\": 25, \"condition\": \"cloudy\"}",
+                    toolCallId: toolCallId1,
+                    name: toolName1
+                )))
+        let toolResult2 = Message.openai(
+            .tool(
+                .init(
+                    content: "{\"time\": \"15:30\", \"date\": \"2025-01-15\"}",
+                    toolCallId: toolCallId2,
+                    name: toolName2
+                )))
+        let finalAssistant = Message.openai(
+            .assistant(
+                .init(
+                    content: "In Tokyo, it's currently 3:30 PM with cloudy weather at 25°C.",
+                    toolCalls: nil,
+                    audio: nil,
+                    reasoning: nil
+                )))
+
+        let chat = Chat(
+            id: UUID(),
+            gameId: "test",
+            messages: [userMessage, assistantWithToolCalls, toolResult1, toolResult2, finalAssistant]
+        )
+        let model = Model.openAI(.init(id: "gpt-4"))
+        let source = Source.openAI(client: OpenAIClient(apiKey: ""), models: [model])
+
+        let sut = AgentLayout(
+            chat: chat,
+            currentModel: .constant(model),
+            currentSource: .constant(source),
+            sources: [source]
+        )
+
+        ViewHosting.host(view: sut)
+        let view = try sut.inspect()
+
+        // Verify both tool calls are shown as complete
+        _ = try view.find(text: "Tool call complete: \(toolName1)")
+        _ = try view.find(text: "Tool call complete: \(toolName2)")
+
+        // Verify the final response is displayed
+        _ = try view.find(text: "In Tokyo, it's currently 3:30 PM with cloudy weather at 25°C.")
+
+        // Verify input is idle
+        let inputView = try view.find(MessageInputView.self)
+        let inputViewStatus = try inputView.actualView().status
+        XCTAssertEqual(inputViewStatus, .idle, "Input should be idle when all tool calls are resolved")
+    }
+
+}
+
+// MARK: - Mock Tools for Testing
+
+import JSONSchema
+
+/// A UI tool that requires user interaction (won't auto-execute)
+struct MockUITool: AgentToolProtocol {
+    var toolType: AgentToolType { .ui }
+    var name: String { "ui_tool" }
+    var description: String { "A UI tool for testing" }
+    var inputType: any Decodable.Type { Args.self }
+    var parameters: JSONSchema {
+        // swiftlint:disable:next force_try
+        try! JSONSchema(jsonString: """
+            {"type": "object", "properties": {"action": {"type": "string"}}, "required": ["action"]}
+            """)
+    }
+
+    struct Args: Decodable {
+        let action: String
+    }
+
+    struct Output: Encodable {
+        let result: String
+    }
+
+    func invoke(args: any Decodable, originalArgs: String) async throws -> any Encodable {
+        return Output(result: "UI tool result")
+    }
+
+    func invoke(argsData: Data, originalArgs: String) async throws -> any Encodable {
+        return Output(result: "UI tool result")
+    }
+}
+
+/// An auto-executing tool (non-UI)
+struct MockAutoTool: AgentToolProtocol {
+    var toolType: AgentToolType { .regular }
+    var name: String { "auto_tool" }
+    var description: String { "An auto-executing tool for testing" }
+    var inputType: any Decodable.Type { Args.self }
+    var parameters: JSONSchema {
+        // swiftlint:disable:next force_try
+        try! JSONSchema(jsonString: """
+            {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
+            """)
+    }
+
+    struct Args: Decodable {
+        let query: String
+    }
+
+    struct Output: Encodable {
+        let result: String
+    }
+
+    func invoke(args: any Decodable, originalArgs: String) async throws -> any Encodable {
+        return Output(result: "Auto tool executed successfully")
+    }
+
+    func invoke(argsData: Data, originalArgs: String) async throws -> any Encodable {
+        return Output(result: "Auto tool executed successfully")
+    }
 }

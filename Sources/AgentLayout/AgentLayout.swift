@@ -59,10 +59,10 @@ public struct AgentLayout: View {
 
     let chatProvider: ChatProvider?
     let renderMessage: MessageRenderer?
-    let onSend: ((String) -> Void)?
+    let onSend: ((Message) -> Void)?
     let onMessage: ((Message) -> Void)?
-    let onDelete: ((String) -> Void)?
-    let onEdit: ((String, String) -> Void)?
+    let onDelete: ((Int) -> Void)?
+    let onEdit: ((Int, Message) -> Void)?
     let tools: [any AgentToolProtocol]
     let systemPrompt: String?
 
@@ -149,14 +149,14 @@ public struct AgentLayout: View {
         // Guard against concurrent generation
         guard generationTask == nil else { return }
 
-        // Notify external handler if exists
-        if let onSend = onSend {
-            onSend(message)
-        }
-
         // Create and append user message
         let userMsg = Message.openai(.user(.init(content: message)))
         chat.messages.append(userMsg)
+
+        // Notify external handler if exists
+        if let onSend = onSend {
+            onSend(userMsg)
+        }
 
         // Scroll to bottom after sending
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -293,8 +293,11 @@ public struct AgentLayout: View {
             return
         }
 
+        // Create the new user message
+        let newMessage = Message.openai(.user(.init(content: newContent)))
+
         // Notify external handler if exists
-        onEdit?(messageId, newContent)
+        onEdit?(index, newMessage)
 
         // Remove all messages after and including the edited message
         chat.messages.removeSubrange(index...)
@@ -398,10 +401,10 @@ public struct AgentLayout: View {
         sources: [Source],
         chatProvider: ChatProvider? = nil,
         renderMessage: MessageRenderer? = nil,
-        onSend: ((String) -> Void)? = nil,
+        onSend: ((Message) -> Void)? = nil,
         onMessage: ((Message) -> Void)? = nil,
-        onDelete: ((String) -> Void)? = nil,
-        onEdit: ((String, String) -> Void)? = nil,
+        onDelete: ((Int) -> Void)? = nil,
+        onEdit: ((Int, Message) -> Void)? = nil,
         tools: [any AgentToolProtocol] = [],
         systemPrompt: String? = nil
     ) {
@@ -453,7 +456,9 @@ public struct AgentLayout: View {
                                             status: status,
                                             isLastMessage: message.id == chat.messages.last?.id,
                                             onDelete: {
-                                                onDelete?(message.id)
+                                                if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                                    onDelete?(index)
+                                                }
                                                 withAnimation(.easeInOut(duration: 0.3)) {
                                                     chat.messages.removeAll(where: {
                                                         $0.id == message.id
@@ -479,7 +484,9 @@ public struct AgentLayout: View {
                                             status: status,
                                             isLastMessage: message.id == chat.messages.last?.id,
                                             onDelete: {
-                                                onDelete?(message.id)
+                                                if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                                    onDelete?(index)
+                                                }
                                                 withAnimation(.easeInOut(duration: 0.3)) {
                                                     chat.messages.removeAll(where: {
                                                         $0.id == message.id
@@ -505,7 +512,9 @@ public struct AgentLayout: View {
                                         status: status,
                                         isLastMessage: message.id == chat.messages.last?.id,
                                         onDelete: {
-                                            onDelete?(message.id)
+                                            if let index = chat.messages.firstIndex(where: { $0.id == message.id }) {
+                                                onDelete?(index)
+                                            }
                                             withAnimation(.easeInOut(duration: 0.3)) {
                                                 chat.messages.removeAll(where: {
                                                     $0.id == message.id
@@ -668,23 +677,13 @@ public struct AgentLayout: View {
         ]
     )
 
-    return AgentLayout(
+    AgentLayout(
         chat: chat,
         currentModel: $currentModel,
         currentSource: $currentSource,
         sources: [currentSource],
-        onSend: { message in
-            let newMessage = Message.openai(.user(.init(content: message)))
-            chat.messages.append(newMessage)
-
-            // Simulate response
-            Task {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                let response = Message.openai(
-                    .assistant(
-                        .init(content: "This is a mock response to: \(message)", audio: nil)))
-                chat.messages.append(response)
-            }
+        onSend: { _ in
+            // Message is already appended by AgentLayout
         }
     )
 }

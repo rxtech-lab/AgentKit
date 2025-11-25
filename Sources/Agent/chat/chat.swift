@@ -23,7 +23,7 @@ public enum ChatStatus {
     case loading
 }
 
-public enum Message: Identifiable, Hashable, Sendable {
+public enum Message: Identifiable, Hashable, Sendable, Codable {
     case openai(OpenAIMessage)
 
     public var id: String {
@@ -39,6 +39,34 @@ public enum Message: Identifiable, Hashable, Sendable {
             case .tool(let msg):
                 return msg.id
             }
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case message
+    }
+
+    private enum MessageType: String, Codable {
+        case openai
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(MessageType.self, forKey: .type)
+        switch type {
+        case .openai:
+            let message = try container.decode(OpenAIMessage.self, forKey: .message)
+            self = .openai(message)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .openai(let message):
+            try container.encode(MessageType.openai, forKey: .type)
+            try container.encode(message, forKey: .message)
         }
     }
 }
