@@ -48,232 +48,26 @@ public actor OpenRouterClient: ChatClient {
         self.siteURL = siteURL
     }
 
-    private func processToolCall(
-        tool: any AgentToolProtocol,
-        toolCall: OpenAIToolCall
-    ) async throws -> String {
-        let argumentsString = toolCall.function?.arguments ?? "{}"
-        guard let data = argumentsString.data(using: .utf8) else {
-            throw ToolError.invalidArgsEncoding
-        }
-
-        let output = try await tool.invoke(argsData: data, originalArgs: argumentsString)
-        let outputData = try JSONEncoder().encode(output)
-        return String(data: outputData, encoding: .utf8) ?? ""
-    }
-
     nonisolated public func process(
         messages: [Message],
         model: Model,
-        tools: [any AgentToolProtocol]
+        tools: [any AgentToolProtocol],
+        maxTurns: Int = 20
     ) -> AsyncThrowingStream<AgentResponsePart, Error> {
-        return AsyncThrowingStream { continuation in
-            Task {
-                var currentMessages: [OpenAIMessage] = messages.compactMap { msg in
-                    if case .openai(let m) = msg { return m }
-                    return nil
-                }
-
-                var keepGoing = true
-
-                while keepGoing {
-                    if Task.isCancelled {
-                        continuation.finish()
-                        return
-                    }
-
-                    let openAITools = tools.map {
-                        OpenAITool(
-                            name: $0.name, description: $0.description, parameters: $0.parameters)
-                    }
-
-                    var currentAssistantContent = ""
-                    var currentAssistantReasoning: String? = nil
-                    var accumulatedToolCalls:
-                        [Int: (
-                            id: String?, type: OpenAIToolCall.ToolType?, name: String?,
-                            arguments: String
-                        )] = [:]
-
-                    do {
-                        let stream = await self.streamChat(
-                            messages: currentMessages,
-                            model: model.id,
-                            tools: openAITools,
-                            reasoning: model.reasoningConfig
-                        )
-
-                        var hasToolCalls = false
-                        var finalFinishReason: String? = nil
-
-                        for try await streamDelta in stream {
-                            let delta = streamDelta.delta
-
-                            // Capture finish_reason from the final chunk
-                            if let finishReason = streamDelta.finishReason {
-                                finalFinishReason = finishReason
-                            }
-
-                            if let content = delta.content {
-                                currentAssistantContent += content
-                                continuation.yield(.textDelta(content))
-                            }
-
-                            if let reasoning = delta.reasoning {
-                                if currentAssistantReasoning == nil {
-                                    currentAssistantReasoning = ""
-                                }
-                                currentAssistantReasoning! += reasoning
-                            }
-
-                            if let toolCalls = delta.toolCalls {
-                                hasToolCalls = true
-                                for toolCall in toolCalls {
-                                    let index = toolCall.index ?? 0
-                                    var current = accumulatedToolCalls[index] ?? (nil, nil, nil, "")
-
-                                    if let id = toolCall.id { current.id = id }
-                                    if let type = toolCall.type { current.type = type }
-                                    if let function = toolCall.function {
-                                        if let name = function.name { current.name = name }
-                                        if let args = function.arguments {
-                                            current.arguments += args
-                                        }
-                                    }
-                                    accumulatedToolCalls[index] = current
-                                }
-                            }
-                        }
-
-                        // Turn finished
-                        var finalToolCalls: [OpenAIToolCall] = []
-                        if hasToolCalls {
-                            let sortedIndices = accumulatedToolCalls.keys.sorted()
-                            for index in sortedIndices {
-                                if let acc = accumulatedToolCalls[index],
-                                    let id = acc.id,
-                                    let type = acc.type,
-                                    let name = acc.name
-                                {
-                                    finalToolCalls.append(
-                                        OpenAIToolCall(
-                                            index: index,
-                                            id: id,
-                                            type: type,
-                                            function: .init(name: name, arguments: acc.arguments)
-                                        ))
-                                }
-                            }
-                        }
-
-                        let assistantMessage = OpenAIAssistantMessage(
-                            content: currentAssistantContent.isEmpty
-                                ? nil : currentAssistantContent,
-                            toolCalls: finalToolCalls.isEmpty ? nil : finalToolCalls,
-                            audio: nil,
-                            reasoning: currentAssistantReasoning
-                        )
-
-                        currentMessages.append(.assistant(assistantMessage))
-                        continuation.yield(.message(.openai(.assistant(assistantMessage))))
-
-                        // Use finish_reason to determine loop control
-                        // Check for tool calls first, regardless of finish_reason
-                        if !finalToolCalls.isEmpty {
-                            // Check for UI tools
-                            let hasUITool = finalToolCalls.contains { call in
-                                guard let name = call.function?.name else { return false }
-                                return tools.contains { $0.name == name && $0.toolType == .ui }
-                            }
-
-                            // Determine which tools to execute automatically
-                            let toolsToExecute: [OpenAIToolCall]
-                            if hasUITool {
-                                keepGoing = false
-                                toolsToExecute = finalToolCalls.filter { call in
-                                    guard let name = call.function?.name else { return true }
-                                    return !tools.contains { $0.name == name && $0.toolType == .ui }
-                                }
-                            } else {
-                                toolsToExecute = finalToolCalls
-                            }
-
-                            if !toolsToExecute.isEmpty {
-                                // Parallel execution
-                                await withTaskGroup(of: OpenAIMessage?.self) { group in
-                                    for toolCall in toolsToExecute {
-                                        group.addTask {
-                                            guard let function = toolCall.function,
-                                                let name = function.name,
-                                                function.arguments != nil,
-                                                let id = toolCall.id
-                                            else { return nil }
-
-                                            if let tool = tools.first(where: { $0.name == name }) {
-                                                do {
-                                                    let result = try await self.processToolCall(
-                                                        tool: tool, toolCall: toolCall)
-                                                    return .tool(
-                                                        .init(
-                                                            content: result, toolCallId: id,
-                                                            name: name))
-                                                } catch let error as ToolError {
-                                                    switch error {
-                                                    case .invalidToolArgs:
-                                                        return .tool(
-                                                            .init(
-                                                                content:
-                                                                    "Error: \(error.localizedDescription). Please fix the arguments and try again.",
-                                                                toolCallId: id, name: name))
-                                                    default:
-                                                        return .tool(
-                                                            .init(
-                                                                content:
-                                                                    "Error: \(error.localizedDescription)",
-                                                                toolCallId: id, name: name))
-                                                    }
-                                                } catch {
-                                                    return .tool(
-                                                        .init(
-                                                            content:
-                                                                "Error: \(error.localizedDescription)",
-                                                            toolCallId: id, name: name))
-                                                }
-                                            } else {
-                                                return .tool(
-                                                    .init(
-                                                        content: "Tool \(name) not found.",
-                                                        toolCallId: id, name: name))
-                                            }
-                                        }
-                                    }
-
-                                    for await result in group {
-                                        if let msg = result {
-                                            currentMessages.append(msg)
-                                            continuation.yield(.message(.openai(msg)))
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // No tool calls - check finish_reason to determine if we should stop
-                            if finalFinishReason == "stop" || finalFinishReason == nil || finalFinishReason == "length" || finalFinishReason == "content_filter" {
-                                // Stop conditions: normal completion, no reason, length limit, or content filter
-                                keepGoing = false
-                            } else {
-                                // Unknown finish_reason without tool calls - stop
-                                keepGoing = false
-                            }
-                        }
-                    } catch {
-                        continuation.finish(throwing: error)
-                        return
-                    }
-                }
-                continuation.finish()
+        return OpenAIChatProcessor.process(
+            messages: messages,
+            model: model,
+            tools: tools,
+            maxTurns: maxTurns,
+            streamChat: { [self] messages, modelId, tools, reasoning in
+                await self.streamChat(
+                    messages: messages,
+                    model: modelId,
+                    tools: tools,
+                    reasoning: reasoning
+                )
             }
-        }
+        )
     }
 
     func makeRequest(

@@ -314,6 +314,9 @@ struct IntegrationTests {
     }
 
     @Test
+    /**
+     Agent should be able to call multiple tools and respond until the finish_reason is stop.
+     */
     func testMultipleToolCallsWithAssistantMessage() async throws {
 
         struct Tool1Input: Decodable {
@@ -385,20 +388,75 @@ struct IntegrationTests {
         #expect(await toolCallTracker.tool1Called, "The tool1 tool should have been called")
         #expect(await toolCallTracker.tool2Called, "The tool2 tool should have been called")
 
-        // check we have 2 tool call message
+        // Check we have assistant messages with tool calls
+        let assistantMessagesWithToolCalls = generatedMessages.filter { msg in
+            if case .assistant(let assistantMsg) = msg, let toolCalls = assistantMsg.toolCalls, !toolCalls.isEmpty {
+                return true
+            }
+            return false
+        }
+        #expect(assistantMessagesWithToolCalls.count >= 2, "Should have at least 2 assistant messages with tool calls")
+
+        // Check we have tool result messages
         let toolMessages: [OpenAIToolMessage] = generatedMessages.filter { $0.role == .tool }
             .map { if case .tool(let toolMsg) = $0 { return toolMsg } else { return nil } }
             .compactMap { $0 }
-
-        let toolCallMessages = toolMessages.filter { $0.toolCallId.isEmpty }
-        #expect(toolCallMessages.count == 2, "Should have 2 tool call messages")
-
-        let toolResultMessages = toolMessages.filter { !$0.toolCallId.isEmpty }
-        #expect(toolResultMessages.count == 2, "Should have 2 tool result messages")
+        #expect(toolMessages.count >= 2, "Should have at least 2 tool result messages")
 
         let lastMessage = generatedMessages.last
         // make sure the last message is an assistant message
         #expect(lastMessage?.role == .assistant, "Last message should be an assistant message")
     }
 
+    @Test
+    /**
+    Agent will stop responding if tool is UI tool.
+    */
+    func testUIStop() async throws {
+        struct UIInput: Decodable {
+            let message: String
+        }
+
+        let (client, source, model) = try await setUpTests()
+
+        let uiTool = AgentTool(
+            name: "ui_tool",
+            description: "UI tool",
+            parameters: .object(properties: ["message": .string()], required: ["message"]),
+            toolType: .ui
+        ) { (args: UIInput) in
+            return "User confirmed: \(args.message)"
+        }
+
+        let messages: [Message] = [
+            .openai(.user(.init(content: "Ask for confirmation saying 'Proceed?'")))
+        ]
+
+        let stream = await client.process(
+            messages: messages,
+            model: model,
+            source: source,
+            tools: [uiTool]
+        )
+
+        var generatedMessages: [OpenAIMessage] = []
+        for try await part in stream {
+            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+                generatedMessages.append(openAIMsg)
+            }
+        }
+
+        // Check we have 1 assistant message with tool call (UI tool)
+        let assistantMessagesWithToolCalls = generatedMessages.filter { msg in
+            if case .assistant(let assistantMsg) = msg, let toolCalls = assistantMsg.toolCalls, !toolCalls.isEmpty {
+                return true
+            }
+            return false
+        }
+        #expect(assistantMessagesWithToolCalls.count == 1, "Should have 1 assistant message with tool call")
+
+        let lastMessage = generatedMessages.last
+        // last message should be assistant message (UI tool stops before execution)
+        #expect(lastMessage?.role == .assistant, "Last message should be an assistant message")
+    }
 }
