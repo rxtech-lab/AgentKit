@@ -38,3 +38,23 @@ struct CodeBlockView: View {
         .markdownMargin(top: 0, bottom: 16)
     }
 }
+
+#Preview {
+    Markdown(
+        """
+        Here is some code:
+
+        ```swift
+        func greet(name: String) -> String {
+            return "Hello, \\(name)!"
+        }
+
+        let message = greet(name: "World")
+        print(message)
+        ```
+        """
+    )
+    .markdownTheme(.chatTheme)
+    .padding()
+    .frame(width: 400)
+}

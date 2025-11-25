@@ -112,9 +112,11 @@ public struct OpenAICompatibleModel: Sendable, Identifiable, Hashable {
 
 public struct CustomModel: Identifiable, Hashable, Sendable {
     public let id: String
+    public let reasoningConfig: ReasoningConfig?
 
-    public init(id: String) {
+    public init(id: String, reasoningConfig: ReasoningConfig? = nil) {
         self.id = id
+        self.reasoningConfig = reasoningConfig
     }
 }
 
@@ -204,8 +206,8 @@ public enum Model: Identifiable, Hashable, Sendable {
             }
             // Otherwise, auto-enable if model supports reasoning
             return model.supportsReasoning ? .default : nil
-        case .custom:
-            return nil
+        case .custom(let model):
+            return model.reasoningConfig
         }
     }
 }

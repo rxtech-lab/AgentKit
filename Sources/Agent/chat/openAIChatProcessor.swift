@@ -92,10 +92,11 @@ struct OpenAIChatProcessor {
 
                     var currentAssistantContent = ""
                     var currentAssistantReasoning: String? = nil
+                    var currentReasoningDetails: [OpenAIAssistantMessage.ReasoningDetail] = []
                     var accumulatedToolCalls:
                         [Int: (
                             id: String?, type: OpenAIToolCall.ToolType?, name: String?,
-                            arguments: String
+                            arguments: String, thoughtSignature: String?
                         )] = [:]
 
                     do {
@@ -129,11 +130,15 @@ struct OpenAIChatProcessor {
                                 currentAssistantReasoning! += reasoning
                             }
 
+                            if let reasoningDetails = delta.reasoningDetails {
+                                currentReasoningDetails.append(contentsOf: reasoningDetails)
+                            }
+
                             if let toolCalls = delta.toolCalls {
                                 hasToolCalls = true
                                 for toolCall in toolCalls {
                                     let index = toolCall.index ?? 0
-                                    var current = accumulatedToolCalls[index] ?? (nil, nil, nil, "")
+                                    var current = accumulatedToolCalls[index] ?? (nil, nil, nil, "", nil)
 
                                     if let id = toolCall.id { current.id = id }
                                     if let type = toolCall.type { current.type = type }
@@ -141,6 +146,9 @@ struct OpenAIChatProcessor {
                                         if let name = function.name { current.name = name }
                                         if let args = function.arguments {
                                             current.arguments += args
+                                        }
+                                        if let thoughtSig = function.thoughtSignature {
+                                            current.thoughtSignature = thoughtSig
                                         }
                                     }
                                     accumulatedToolCalls[index] = current
@@ -163,7 +171,11 @@ struct OpenAIChatProcessor {
                                             index: index,
                                             id: id,
                                             type: type,
-                                            function: .init(name: name, arguments: acc.arguments)
+                                            function: .init(
+                                                name: name,
+                                                arguments: acc.arguments,
+                                                thoughtSignature: acc.thoughtSignature
+                                            )
                                         ))
                                 }
                             }
@@ -174,7 +186,8 @@ struct OpenAIChatProcessor {
                                 ? nil : currentAssistantContent,
                             toolCalls: finalToolCalls.isEmpty ? nil : finalToolCalls,
                             audio: nil,
-                            reasoning: currentAssistantReasoning
+                            reasoning: currentAssistantReasoning,
+                            reasoningDetails: currentReasoningDetails.isEmpty ? nil : currentReasoningDetails
                         )
 
                         currentMessages.append(.assistant(assistantMessage))
