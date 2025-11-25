@@ -185,7 +185,7 @@ struct MessageInputView: View {
         """
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt-4o"))
     @Previewable @State var currentSource: Source = .openAI(
-        client: OpenAIClient(apiKey: ""),
+        client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
         models: [
             .openAI(.init(id: "gpt-4o")),
             .openAI(.init(id: "gpt-4")),
@@ -200,7 +200,8 @@ struct MessageInputView: View {
         currentSource: $currentSource,
         sources: [
             .openAI(
-                client: OpenAIClient(apiKey: ""),
+                client: OpenAIClient(
+                    apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
@@ -218,7 +219,8 @@ struct MessageInputView: View {
         currentSource: $currentSource,
         sources: [
             .openAI(
-                client: OpenAIClient(apiKey: ""),
+                client: OpenAIClient(
+                    apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
@@ -236,7 +238,8 @@ struct MessageInputView: View {
         currentSource: $currentSource,
         sources: [
             .openAI(
-                client: OpenAIClient(apiKey: ""),
+                client: OpenAIClient(
+                    apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),

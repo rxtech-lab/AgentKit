@@ -24,7 +24,7 @@ public enum AgentClientError: LocalizedError {
     }
 }
 
-public enum Source: Identifiable, Sendable {
+public enum Source: Identifiable, Sendable, Equatable {
     case openAI(client: OpenAIClient, models: [Model])
     case openRouter(client: OpenRouterClient, models: [Model])
 
@@ -33,6 +33,11 @@ public enum Source: Identifiable, Sendable {
         case .openAI: return "openai"
         case .openRouter: return "openrouter"
         }
+    }
+
+    public static func == (lhs: Source, rhs: Source) -> Bool {
+        // Compare by id and models for SwiftUI change detection
+        lhs.id == rhs.id && lhs.models == rhs.models
     }
 
     public var displayName: String {

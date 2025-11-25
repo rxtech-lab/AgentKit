@@ -83,7 +83,11 @@ public actor OpenAIClient: ChatClient {
 
     public static let defaultBaseURL = URL(string: "https://api.openai.com/v1")!
 
-    public init(apiKey: String, baseURL: URL? = nil) {
+    public init(
+        apiKey: String = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? "",
+        baseURL: URL? = URL(
+            string: ProcessInfo.processInfo.environment["OPENAI_API_BASE_URL"] ?? "")
+    ) {
         self.apiKey = apiKey
         self.baseURL = baseURL ?? Self.defaultBaseURL
     }
@@ -165,10 +169,11 @@ public actor OpenAIClient: ChatClient {
                             if let json = try? JSONDecoder().decode(StreamChunk.self, from: data),
                                 let choice = json.choices.first
                             {
-                                continuation.yield(StreamDelta(
-                                    delta: choice.delta,
-                                    finishReason: choice.finishReason
-                                ))
+                                continuation.yield(
+                                    StreamDelta(
+                                        delta: choice.delta,
+                                        finishReason: choice.finishReason
+                                    ))
                             }
                         }
                     }

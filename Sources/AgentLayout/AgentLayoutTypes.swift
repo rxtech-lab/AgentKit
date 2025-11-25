@@ -1,8 +1,8 @@
 import Agent
 import SwiftUI
 
-public protocol ChatProvider: Sendable {
-    func sendMessage(message: String, model: Model) async throws
+public protocol ChatProviderProtocol: Sendable {
+    func sendMessage(message: String) async throws
     func sendFunctionResult(id: String, result: any Encodable) async throws
     func rejectFunction(id: String) async throws
 }
@@ -19,4 +19,4 @@ public enum ToolStatus {
     case completed
 }
 
-public typealias MessageRenderer = (Message, [Message], ChatProvider?, ToolStatus) -> (AnyView, RenderAction)
+public typealias MessageRenderer = (Message, [Message], ChatProviderProtocol, ToolStatus) -> (AnyView, RenderAction)
