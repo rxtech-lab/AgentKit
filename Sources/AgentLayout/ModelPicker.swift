@@ -76,7 +76,7 @@ struct ModelPicker: View {
 #Preview {
     @Previewable @State var currentModel: Model = .openAI(.init(id: "gpt4o"))
     @Previewable @State var currentSource: Source = .openAI(
-        client: OpenAIClient(apiKey: ""),
+        client: OpenAIClient(apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
         models: [
             .openAI(.init(id: "gpt-4o")),
             .openAI(.init(id: "gpt-4")),
@@ -87,7 +87,8 @@ struct ModelPicker: View {
         currentSource: $currentSource,
         sources: [
             .openAI(
-                client: OpenAIClient(apiKey: ""),
+                client: OpenAIClient(
+                    apiKey: "test", baseURL: URL(string: "http://localhost:8127")!),
                 models: [
                     .openAI(.init(id: "gpt-4o")),
                     .openAI(.init(id: "gpt-4")),
