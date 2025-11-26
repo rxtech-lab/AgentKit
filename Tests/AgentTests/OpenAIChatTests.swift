@@ -174,7 +174,8 @@ struct OpenAIChatTests {
         let message = OpenAIUserMessage(id: "msg-1", content: "User message")
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAIUserMessage.self, from: encoded)
-        #expect(decoded.id == "msg-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         #expect(decoded.content == "User message")
         #expect(decoded.role == .user)
     }
@@ -224,7 +225,8 @@ struct OpenAIChatTests {
             id: "msg-1", content: "Response", toolCalls: nil, audio: nil)
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAIAssistantMessage.self, from: encoded)
-        #expect(decoded.id == "msg-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         #expect(decoded.content == "Response")
         #expect(decoded.role == .assistant)
     }
@@ -258,7 +260,8 @@ struct OpenAIChatTests {
         let message = OpenAISystemMessage(id: "sys-1", content: "Be helpful")
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAISystemMessage.self, from: encoded)
-        #expect(decoded.id == "sys-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         #expect(decoded.content == "Be helpful")
         #expect(decoded.role == .system)
     }
@@ -285,7 +288,8 @@ struct OpenAIChatTests {
             id: "tool-1", content: "{\"result\": 42}", toolCallId: "call_789")
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(OpenAIToolMessage.self, from: encoded)
-        #expect(decoded.id == "tool-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         #expect(decoded.content == "{\"result\": 42}")
         #expect(decoded.toolCallId == "call_789")
         #expect(decoded.role == .tool)
@@ -386,5 +390,69 @@ struct OpenAIChatTests {
             strict: true
         )
         #expect(tool.strict == true)
+    }
+
+    // MARK: - Message Encoding Tests (ID Exclusion)
+
+    @Test func testOpenAIUserMessageEncodingExcludesId() throws {
+        let message = OpenAIUserMessage(id: "test-id-123", content: "Hello")
+        let encoded = try JSONEncoder().encode(message)
+        let jsonDict = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+
+        // ID should NOT be included in encoded JSON (OpenAI API doesn't accept it)
+        #expect(jsonDict["id"] == nil, "id field should not be encoded")
+        #expect(jsonDict["createdAt"] == nil, "createdAt field should not be encoded")
+        #expect(jsonDict["role"] as? String == "user")
+        #expect(jsonDict["content"] as? String == "Hello")
+    }
+
+    @Test func testOpenAIAssistantMessageEncodingExcludesId() throws {
+        let message = OpenAIAssistantMessage(
+            id: "test-id-456",
+            content: "Response",
+            toolCalls: nil,
+            audio: nil,
+            reasoning: "Some reasoning",
+            reasoningDetails: nil
+        )
+        let encoded = try JSONEncoder().encode(message)
+        let jsonDict = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+
+        // ID and response-only fields should NOT be included
+        #expect(jsonDict["id"] == nil, "id field should not be encoded")
+        #expect(jsonDict["audio"] == nil, "audio field should not be encoded")
+        #expect(jsonDict["reasoning"] == nil, "reasoning field should not be encoded")
+        #expect(jsonDict["reasoning_details"] == nil, "reasoning_details field should not be encoded")
+        #expect(jsonDict["role"] as? String == "assistant")
+        #expect(jsonDict["content"] as? String == "Response")
+    }
+
+    @Test func testOpenAISystemMessageEncodingExcludesId() throws {
+        let message = OpenAISystemMessage(id: "test-id-789", content: "System prompt")
+        let encoded = try JSONEncoder().encode(message)
+        let jsonDict = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+
+        // ID should NOT be included
+        #expect(jsonDict["id"] == nil, "id field should not be encoded")
+        #expect(jsonDict["role"] as? String == "system")
+        #expect(jsonDict["content"] as? String == "System prompt")
+    }
+
+    @Test func testOpenAIToolMessageEncodingExcludesId() throws {
+        let message = OpenAIToolMessage(
+            id: "test-id-abc",
+            content: "Tool result",
+            toolCallId: "call_123",
+            name: "my_tool"
+        )
+        let encoded = try JSONEncoder().encode(message)
+        let jsonDict = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+
+        // ID should NOT be included, but toolCallId should be
+        #expect(jsonDict["id"] == nil, "id field should not be encoded")
+        #expect(jsonDict["role"] as? String == "tool")
+        #expect(jsonDict["content"] as? String == "Tool result")
+        #expect(jsonDict["tool_call_id"] as? String == "call_123")
+        #expect(jsonDict["name"] as? String == "my_tool")
     }
 }

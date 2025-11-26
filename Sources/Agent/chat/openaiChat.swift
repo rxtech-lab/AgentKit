@@ -219,6 +219,13 @@ public struct OpenAIUserMessage: Hashable, Codable, Sendable {
         self.content = try container.decode(String.self, forKey: .content)
         self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encode(content, forKey: .content)
+        // Exclude id and createdAt - not part of OpenAI API spec
+    }
 }
 
 public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
@@ -295,6 +302,14 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
             reasoningDetails: reasoningDetails
         )
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encodeIfPresent(content, forKey: .content)
+        try container.encodeIfPresent(toolCalls, forKey: .toolCalls)
+        // Exclude id, audio, reasoning, reasoningDetails - not part of request spec
+    }
 }
 
 public struct OpenAISystemMessage: Hashable, Codable, Sendable {
@@ -318,6 +333,13 @@ public struct OpenAISystemMessage: Hashable, Codable, Sendable {
         self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         self.role = try container.decodeIfPresent(OpenAIRole.self, forKey: .role) ?? .system
         self.content = try container.decode(String.self, forKey: .content)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encode(content, forKey: .content)
+        // Exclude id - not part of OpenAI API spec
     }
 }
 
@@ -350,6 +372,15 @@ public struct OpenAIToolMessage: Hashable, Codable, Sendable {
         self.content = try container.decode(String.self, forKey: .content)
         self.toolCallId = try container.decode(String.self, forKey: .toolCallId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encode(content, forKey: .content)
+        try container.encode(toolCallId, forKey: .toolCallId)
+        try container.encodeIfPresent(name, forKey: .name)
+        // Exclude id - not part of OpenAI API spec
     }
 }
 

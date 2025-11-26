@@ -15,7 +15,8 @@ struct ChatTests {
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(Message.self, from: encoded)
 
-        #expect(decoded.id == "user-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         if case .openai(.user(let decodedUser)) = decoded {
             #expect(decodedUser.content == "Hello")
             #expect(decodedUser.role == .user)
@@ -32,7 +33,8 @@ struct ChatTests {
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(Message.self, from: encoded)
 
-        #expect(decoded.id == "assistant-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         if case .openai(.assistant(let decodedAssistant)) = decoded {
             #expect(decodedAssistant.content == "Hi there")
             #expect(decodedAssistant.role == .assistant)
@@ -48,7 +50,8 @@ struct ChatTests {
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(Message.self, from: encoded)
 
-        #expect(decoded.id == "system-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         if case .openai(.system(let decodedSystem)) = decoded {
             #expect(decodedSystem.content == "Be helpful")
             #expect(decodedSystem.role == .system)
@@ -64,7 +67,8 @@ struct ChatTests {
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(Message.self, from: encoded)
 
-        #expect(decoded.id == "tool-1")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         if case .openai(.tool(let decodedTool)) = decoded {
             #expect(decodedTool.content == "Result")
             #expect(decodedTool.toolCallId == "call_123")
@@ -89,7 +93,8 @@ struct ChatTests {
         let encoded = try JSONEncoder().encode(message)
         let decoded = try JSONDecoder().decode(Message.self, from: encoded)
 
-        #expect(decoded.id == "assistant-2")
+        // ID is not encoded (excluded for API compatibility), so a new one is generated on decode
+        #expect(!decoded.id.isEmpty)
         if case .openai(.assistant(let decodedAssistant)) = decoded {
             #expect(decodedAssistant.content == nil)
             #expect(decodedAssistant.toolCalls?.count == 1)
