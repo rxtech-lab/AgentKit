@@ -158,7 +158,7 @@ public class ChatProvider: ChatProviderProtocol {
         encoder.outputFormatting = .prettyPrinted
         let resultString: String
         if let data = try? encoder.encode(AnyEncodable(result)),
-           let jsonString = String(data: data, encoding: .utf8)
+            let jsonString = String(data: data, encoding: .utf8)
         {
             resultString = jsonString
         } else {
@@ -171,8 +171,8 @@ public class ChatProvider: ChatProviderProtocol {
             if let chat = self.chat {
                 for message in chat.messages.reversed() {
                     if case .openai(let openAIMsg) = message,
-                       case .assistant(let assistant) = openAIMsg,
-                       let toolCalls = assistant.toolCalls
+                        case .assistant(let assistant) = openAIMsg,
+                        let toolCalls = assistant.toolCalls
                     {
                         if let toolCall = toolCalls.first(where: { $0.id == id }) {
                             toolName = toolCall.function?.name
@@ -341,7 +341,8 @@ public class ChatProvider: ChatProviderProtocol {
 
     public func send(_ message: String) {
         guard generationTask == nil else { return }
-        guard var chat = chat, let currentSource = currentSource, let currentModel = currentModel else { return }
+        guard var chat = chat, let currentSource = currentSource, let currentModel = currentModel
+        else { return }
 
         let userMsg = Message.openai(.user(.init(content: message)))
         chat.messages.append(userMsg)
@@ -353,14 +354,19 @@ public class ChatProvider: ChatProviderProtocol {
             self?.scrollToBottom?()
         }
 
-        let source = currentSource
-        let model = currentModel
+        startGeneration(source: currentSource, model: currentModel, userMessage: message)
+    }
 
+    /// Internal method to start generation without adding a user message.
+    /// Used by both `send` and `regenerate`.
+    private func startGeneration(source: Source, model: Model, userMessage: String? = nil) {
         generationTask = Task { [weak self] in
             guard let self = self else { return }
             self.status = .loading
 
-            try? await self.sendMessage(message: message)
+            if let message = userMessage {
+                try? await self.sendMessage(message: message)
+            }
 
             do {
                 var messagesToSend = self.chat?.messages ?? []
@@ -493,7 +499,9 @@ public class ChatProvider: ChatProviderProtocol {
         guard generationTask == nil else { return }
         guard let chat = chat else { return }
         guard let index = chat.messages.firstIndex(where: { $0.id == messageId }) else { return }
+        guard let currentSource = currentSource, let currentModel = currentModel else { return }
 
+        // Find the user message content before the target message
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
@@ -504,11 +512,14 @@ public class ChatProvider: ChatProviderProtocol {
             }
         }
 
-        guard let content = userMessageContent else { return }
+        guard userMessageContent != nil else { return }
 
+        // Remove the target message and all subsequent messages
         self.chat?.messages.removeSubrange(index...)
         notifyMessageChange()
-        send(content)
+
+        // Start generation without adding a new user message
+        startGeneration(source: currentSource, model: currentModel)
     }
 
     public func cancel() {
@@ -623,5 +634,14 @@ public class ChatProvider: ChatProviderProtocol {
 
     public func updateSystemPrompt(_ newSystemPrompt: String?) {
         self.systemPrompt = newSystemPrompt
+    }
+
+    /**
+        Regenerates the conversation starting at the given message.
+        This will remove all messages after the given message and regenerate the conversation from the given message.
+        - Parameter message: The message to start regenerating from.
+    */
+    public func regenerate(startsAt message: Message) async throws {
+
     }
 }
