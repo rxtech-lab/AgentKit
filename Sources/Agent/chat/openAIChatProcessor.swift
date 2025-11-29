@@ -128,6 +128,7 @@ struct OpenAIChatProcessor {
                                     currentAssistantReasoning = ""
                                 }
                                 currentAssistantReasoning! += reasoning
+                                continuation.yield(.reasoningDelta(reasoning))
                             }
 
                             if let reasoningDetails = delta.reasoningDetails {

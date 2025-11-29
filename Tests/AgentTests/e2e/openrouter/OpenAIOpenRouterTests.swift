@@ -114,7 +114,7 @@ struct OpenAIOpenRouterTests {
      3. Tool result is sent back
      4. Assistant responds
      5. User sends another message - this previously failed with "Expected an ID that begins with 'msg'" error
-
+    
      The fix: Message IDs are no longer included when encoding messages for the OpenAI API.
      */
     func testMultiTurnConversationAfterToolCallDoesNotFailWithInvalidId() async throws {
@@ -123,7 +123,7 @@ struct OpenAIOpenRouterTests {
         }
 
         let (client, source, _) = try await setUpTests()
-        let model = Model.custom(CustomModel(id: "openai/gpt-4.1-mini"))
+        let model = Model.custom(CustomModel(id: "openai/gpt-5.1-codex-mini"))
 
         let greetTool = AgentTool(
             name: "greet",
@@ -135,7 +135,12 @@ struct OpenAIOpenRouterTests {
 
         // First turn: user message triggers tool call
         let messages1: [Message] = [
-            .openai(.system(.init(content: "You are a greeting assistant. Use the greet tool when asked to greet someone."))),
+            .openai(
+                .system(
+                    .init(
+                        content:
+                            "You are a greeting assistant. Use the greet tool when asked to greet someone."
+                    ))),
             .openai(.user(.init(content: "Please greet Alice"))),
         ]
 

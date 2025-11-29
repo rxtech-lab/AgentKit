@@ -238,6 +238,7 @@ public class ChatProvider: ChatProviderProtocol {
 
                 var currentAssistantId = UUID().uuidString
                 var currentAssistantContent = ""
+                var currentAssistantReasoning = ""
 
                 let initialMsg = Message.openai(
                     .assistant(
@@ -258,10 +259,42 @@ public class ChatProvider: ChatProviderProtocol {
                     if Task.isCancelled { break }
 
                     switch part {
+                    case .reasoningDelta(let reasoning):
+                        if self.currentStreamingMessageId == nil {
+                            currentAssistantId = UUID().uuidString
+                            currentAssistantContent = ""
+                            currentAssistantReasoning = ""
+                            let newMsg = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: "",
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: ""
+                                    )))
+                            self.chat?.messages.append(newMsg)
+                            self.currentStreamingMessageId = currentAssistantId
+                        }
+
+                        currentAssistantReasoning += reasoning
+                        if let index = self.chat?.messages.firstIndex(where: {
+                            $0.id == self.currentStreamingMessageId
+                        }) {
+                            self.chat?.messages[index] = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: currentAssistantContent.isEmpty ? nil : currentAssistantContent,
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: currentAssistantReasoning
+                                    )))
+                        }
+
                     case .textDelta(let text):
                         if self.currentStreamingMessageId == nil {
                             currentAssistantId = UUID().uuidString
                             currentAssistantContent = ""
+                            currentAssistantReasoning = ""
                             let newMsg = Message.openai(
                                 .assistant(
                                     .init(
@@ -282,7 +315,8 @@ public class ChatProvider: ChatProviderProtocol {
                                     .init(
                                         id: currentAssistantId,
                                         content: currentAssistantContent,
-                                        toolCalls: nil, audio: nil
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: currentAssistantReasoning.isEmpty ? nil : currentAssistantReasoning
                                     )))
                         }
 
@@ -384,6 +418,7 @@ public class ChatProvider: ChatProviderProtocol {
 
                 var currentAssistantId = UUID().uuidString
                 var currentAssistantContent = ""
+                var currentAssistantReasoning = ""
 
                 let initialMsg = Message.openai(
                     .assistant(
@@ -404,10 +439,42 @@ public class ChatProvider: ChatProviderProtocol {
                     if Task.isCancelled { break }
 
                     switch part {
+                    case .reasoningDelta(let reasoning):
+                        if self.currentStreamingMessageId == nil {
+                            currentAssistantId = UUID().uuidString
+                            currentAssistantContent = ""
+                            currentAssistantReasoning = ""
+                            let newMsg = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: "",
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: ""
+                                    )))
+                            self.chat?.messages.append(newMsg)
+                            self.currentStreamingMessageId = currentAssistantId
+                        }
+
+                        currentAssistantReasoning += reasoning
+                        if let index = self.chat?.messages.firstIndex(where: {
+                            $0.id == self.currentStreamingMessageId
+                        }) {
+                            self.chat?.messages[index] = Message.openai(
+                                .assistant(
+                                    .init(
+                                        id: currentAssistantId,
+                                        content: currentAssistantContent.isEmpty ? nil : currentAssistantContent,
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: currentAssistantReasoning
+                                    )))
+                        }
+
                     case .textDelta(let text):
                         if self.currentStreamingMessageId == nil {
                             currentAssistantId = UUID().uuidString
                             currentAssistantContent = ""
+                            currentAssistantReasoning = ""
                             let newMsg = Message.openai(
                                 .assistant(
                                     .init(
@@ -428,7 +495,8 @@ public class ChatProvider: ChatProviderProtocol {
                                     .init(
                                         id: currentAssistantId,
                                         content: currentAssistantContent,
-                                        toolCalls: nil, audio: nil
+                                        toolCalls: nil, audio: nil,
+                                        reasoning: currentAssistantReasoning.isEmpty ? nil : currentAssistantReasoning
                                     )))
                         }
 
