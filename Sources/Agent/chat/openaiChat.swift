@@ -242,12 +242,39 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
     }
 
     public struct ReasoningDetail: Hashable, Codable, Sendable {
+        public enum ReasoningType: String, Codable, Sendable {
+            case summary = "reasoning.summary"
+            case text = "reasoning.text"
+        }
+
+        public let type: ReasoningType?
         public let id: String?
         public let format: String?
+        public let index: Int?
 
-        public init(id: String?, format: String?) {
+        // For summary type
+        public let summary: String?
+
+        // For text type
+        public let text: String?
+        public let signature: String?
+
+        public init(
+            type: ReasoningType? = nil,
+            id: String? = nil,
+            format: String? = nil,
+            index: Int? = nil,
+            summary: String? = nil,
+            text: String? = nil,
+            signature: String? = nil
+        ) {
+            self.type = type
             self.id = id
             self.format = format
+            self.index = index
+            self.summary = summary
+            self.text = text
+            self.signature = signature
         }
     }
 
@@ -308,7 +335,10 @@ public struct OpenAIAssistantMessage: Hashable, Codable, Sendable {
         try container.encode(role, forKey: .role)
         try container.encodeIfPresent(content, forKey: .content)
         try container.encodeIfPresent(toolCalls, forKey: .toolCalls)
-        // Exclude id, audio, reasoning, reasoningDetails - not part of request spec
+        // Note: id and audio are excluded - not part of OpenAI API spec
+        // But reasoning and reasoningDetails are included for persistence
+        try container.encodeIfPresent(reasoning, forKey: .reasoning)
+        try container.encodeIfPresent(reasoningDetails, forKey: .reasoningDetails)
     }
 }
 

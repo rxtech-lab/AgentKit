@@ -39,6 +39,7 @@ final class OpenAIClientTests: XCTestCase {
     override func tearDown() async throws {
         // Shut down the server
         if let app = app {
+            await app.server.shutdown()
             try? await app.asyncShutdown()
         }
         app = nil

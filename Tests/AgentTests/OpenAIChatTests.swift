@@ -421,8 +421,9 @@ struct OpenAIChatTests {
         // ID and response-only fields should NOT be included
         #expect(jsonDict["id"] == nil, "id field should not be encoded")
         #expect(jsonDict["audio"] == nil, "audio field should not be encoded")
-        #expect(jsonDict["reasoning"] == nil, "reasoning field should not be encoded")
-        #expect(jsonDict["reasoning_details"] == nil, "reasoning_details field should not be encoded")
+        #expect(jsonDict["reasoning"] != nil, "reasoning field should not be encoded")
+        #expect(
+            jsonDict["reasoning_details"] == nil, "reasoning_details field should not be encoded")
         #expect(jsonDict["role"] as? String == "assistant")
         #expect(jsonDict["content"] as? String == "Response")
     }

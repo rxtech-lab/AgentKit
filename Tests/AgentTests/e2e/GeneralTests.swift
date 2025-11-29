@@ -84,6 +84,8 @@ struct IntegrationTests {
                 }
             case .textDelta(let text):
                 finalContent += text
+            case .reasoningDelta:
+                break  // Ignore reasoning during this test
             case .error(let error):
                 throw error
             }

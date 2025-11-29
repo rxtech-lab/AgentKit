@@ -64,6 +64,42 @@ struct OpenAIMessageRow: View {
         return []
     }
 
+    private var reasoning: String? {
+        if case .assistant(let assistantMessage) = message {
+            return assistantMessage.reasoning
+        }
+        return nil
+    }
+
+    private var reasoningDetails: [OpenAIAssistantMessage.ReasoningDetail]? {
+        if case .assistant(let assistantMessage) = message {
+            return assistantMessage.reasoningDetails
+        }
+        return nil
+    }
+
+    /// Extract summary from reasoningDetails (type == .summary)
+    private var reasoningSummary: String? {
+        guard let details = reasoningDetails else { return nil }
+        return details.first(where: { $0.type == .summary })?.summary
+    }
+
+    private var hasReasoningContent: Bool {
+        // Check if we have reasoning text
+        if let reasoning = reasoning, !reasoning.isEmpty {
+            return true
+        }
+        // Check if we have summary from reasoningDetails
+        if let summary = reasoningSummary, !summary.isEmpty {
+            return true
+        }
+        // Also show during loading if this is the last message (streaming thinking)
+        if isLastMessage && status == .loading {
+            return true
+        }
+        return false
+    }
+
     public init(
         id: String, message: OpenAIMessage, messages: [OpenAIMessage] = [],
         status: ChatStatus = .idle,
@@ -109,18 +145,30 @@ struct OpenAIMessageRow: View {
                         }
                     }
                 } else {
-                    if let content = content {
-                        Markdown(content)
-                            .markdownTheme(.chatTheme)
-                            .markdownCodeSyntaxHighlighter(
-                                SplashCodeSyntaxHighlighter(
-                                    theme: .wwdc18(withFont: .init(size: 14)))
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Thinking/reasoning content (expandable)
+                        if hasReasoningContent {
+                            ThinkingContentView(
+                                summary: reasoningSummary,
+                                reasoning: reasoning,
+                                status: status
                             )
-                            .textSelection(.enabled)
                             .padding(.horizontal, 12)
-                            .padding(.top, 10)
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: 600, alignment: .leading)
+                        }
+
+                        if let content = content {
+                            Markdown(content)
+                                .markdownTheme(.chatTheme)
+                                .markdownCodeSyntaxHighlighter(
+                                    SplashCodeSyntaxHighlighter(
+                                        theme: .wwdc18(withFont: .init(size: 14)))
+                                )
+                                .textSelection(.enabled)
+                                .padding(.horizontal, 12)
+                                .padding(.top, 10)
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: 600, alignment: .leading)
+                        }
                     }
                     Spacer()
                 }
@@ -294,6 +342,40 @@ struct OpenAIMessageRow: View {
                                 name: "GetWeather", arguments: "{\"location\": \"Los Angeles\"}"))
                     ], audio: nil)),
             status: .loading)
+    }
+    .padding()
+}
+
+#Preview("With Thinking Content") {
+    ScrollView {
+        OpenAIMessageRow(
+            id: "1",
+            message: .assistant(
+                .init(
+                    content: "Based on my analysis, here's a simple ERC20 token implementation in Solidity...",
+                    toolCalls: nil,
+                    audio: nil,
+                    reasoning: """
+                    Let me think through this step by step:
+
+                    1. First, I need to understand what an ERC20 token requires.
+                    2. The standard interface includes: `transfer`, `approve`, `transferFrom`, `balanceOf`, and `allowance`.
+                    3. I should also implement events: `Transfer` and `Approval`.
+
+                    Key security considerations:
+                    - Use SafeMath or Solidity 0.8+ for overflow protection
+                    - Validate addresses are not zero
+                    - Emit events for all state changes
+                    """,
+                    reasoningDetails: [
+                        .init(
+                            type: .summary,
+                            id: "summary-1",
+                            summary: "The model analyzed the requirements for an ERC20 token implementation..."
+                        )
+                    ]
+                )),
+            status: .idle)
     }
     .padding()
 }

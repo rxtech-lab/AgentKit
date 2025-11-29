@@ -3,6 +3,7 @@ import Foundation
 
 public enum AgentResponsePart: Sendable {
     case textDelta(String)
+    case reasoningDelta(String)
     case message(Message)
     case error(Error)
 }

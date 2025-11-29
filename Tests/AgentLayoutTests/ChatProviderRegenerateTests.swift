@@ -33,16 +33,15 @@ final class RegenerateSharedMockServer {
         // Try random ports with retry, creating fresh app each time
         var lastError: Error?
         for _ in 0..<10 {
-            // Create application with empty arguments to avoid Vapor parsing test framework args
-            let env = Environment(name: "testing", arguments: ["vapor"])
-            let application = try await Application.make(env)
+            // Use custom environment to avoid parsing command-line args from Swift Testing
+            let application = try await Application.make(.custom(name: "testing"))
             let randomPort = Int.random(in: 10000...60000)
-            application.http.server.configuration.port = randomPort
 
             controller.registerRoutes(on: application)
 
             do {
-                try await application.startup()
+                // Use server.start instead of startup to avoid command parsing
+                try await application.server.start(address: .hostname("localhost", port: randomPort))
                 self.port = randomPort
                 self.app = application
                 self.isRunning = true
@@ -62,6 +61,7 @@ final class RegenerateSharedMockServer {
 
     func shutdown() async throws {
         if let app = app {
+            await app.server.shutdown()
             try await app.asyncShutdown()
         }
         app = nil
