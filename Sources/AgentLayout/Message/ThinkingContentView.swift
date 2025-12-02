@@ -22,10 +22,10 @@ struct ThinkingContentView: View {
 
     @State private var isExpanded = false
 
-    /// Title text to display (summary or fallback)
+    /// Title text to display (summary with markdown stripped, or fallback)
     private var titleText: String {
         if let summary = summary, !summary.isEmpty {
-            return summary
+            return MarkdownStripper.stripMarkdown(summary)
         }
         return "Thinking..."
     }
@@ -61,8 +61,7 @@ struct ThinkingContentView: View {
                             .foregroundColor(.orange.mix(with: .mint, by: 0.9))
                             .shimmering()
                     } else {
-                        Markdown(titleText)
-                            .markdownTheme(.chatTheme)
+                        Text(titleText)
                             .lineLimit(1)
                             .foregroundColor(.orange.mix(with: .mint, by: 0.9))
                     }

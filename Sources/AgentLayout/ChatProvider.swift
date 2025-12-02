@@ -49,6 +49,7 @@ public class ChatProvider: ChatProviderProtocol {
     public var onDelete: ((Int) -> Void)?
     public var onEdit: ((Int, Message) -> Void)?
     public var onMessageChange: (([Message]) -> Void)?
+    public var onError: ((Error) -> Void)?
 
     // MARK: - Internal State (not observed)
     @ObservationIgnored private var agentClient = AgentClient()
@@ -360,6 +361,7 @@ public class ChatProvider: ChatProviderProtocol {
                 self.currentStreamingMessageId = nil
             } catch {
                 print("Error continuing conversation: \(error)")
+                self.onError?(error)
                 if let msgId = self.currentStreamingMessageId {
                     self.chat?.messages.removeAll { $0.id == msgId }
                     self.notifyMessageChange()
@@ -540,6 +542,7 @@ public class ChatProvider: ChatProviderProtocol {
                 self.currentStreamingMessageId = nil
             } catch {
                 print("Error sending message: \(error)")
+                self.onError?(error)
                 if let msgId = self.currentStreamingMessageId {
                     self.chat?.messages.removeAll { $0.id == msgId }
                     self.notifyMessageChange()
@@ -569,7 +572,22 @@ public class ChatProvider: ChatProviderProtocol {
         guard let index = chat.messages.firstIndex(where: { $0.id == messageId }) else { return }
         guard let currentSource = currentSource, let currentModel = currentModel else { return }
 
-        // Find the user message content before the target message
+        let targetMessage = chat.messages[index]
+
+        // Check if target is a user message
+        if case .openai(let openAIMsg) = targetMessage,
+            case .user = openAIMsg
+        {
+            // User message: remove everything after it (keep the user message)
+            if index + 1 < chat.messages.count {
+                self.chat?.messages.removeSubrange((index + 1)...)
+            }
+            notifyMessageChange()
+            startGeneration(source: currentSource, model: currentModel)
+            return
+        }
+
+        // Assistant/other message: find preceding user message and remove from target onwards
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
             if case .openai(let openAIMsg) = chat.messages[i],
@@ -582,7 +600,7 @@ public class ChatProvider: ChatProviderProtocol {
 
         guard userMessageContent != nil else { return }
 
-        // Remove the target message and all subsequent messages
+        // Remove target message and all subsequent messages
         self.chat?.messages.removeSubrange(index...)
         notifyMessageChange()
 
