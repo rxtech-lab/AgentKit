@@ -259,6 +259,10 @@ public struct AgentLayout: View {
                                 proxy.scrollTo(lastMessage.id, anchor: .top)
                             }
                         }
+                        chatProvider.onError = { err in
+                            error = err
+                            showAlert = true
+                        }
                         // Scroll to bottom when view first appears
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             scrollToBottom()
