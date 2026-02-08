@@ -512,7 +512,7 @@ struct ChatProviderTests {
 
         // Verify rejection content
         for msg in receivedMessages {
-            if case .openai(let openAIMsg) = msg, case .tool(let toolMsg) = openAIMsg {
+            if case .openai(let openAIMsg, _) = msg, case .tool(let toolMsg) = openAIMsg {
                 #expect(toolMsg.content == ChatProvider.REJECT_MESSAGE_STRING)
             } else {
                 Issue.record("Expected tool message")
@@ -635,6 +635,163 @@ struct ChatProviderTests {
         provider.cancel()
 
         #expect(callCount >= 1)  // At least one call when rejection message is added
+    }
+    
+    // MARK: - Custom Agent Tests
+    
+    @Test("onCustomAgentSend callback is set during setup")
+    func testOnCustomAgentSendSetup() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        var callbackCalled = false
+        let provider = ChatProvider()
+        provider.setup(
+            chat: chat,
+            currentModel: model,
+            currentSource: source,
+            onCustomAgentSend: { _, _ in callbackCalled = true }
+        )
+        
+        #expect(provider.onCustomAgentSend != nil)
+    }
+    
+    @Test("updateMessages replaces all messages")
+    func testUpdateMessages() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [
+            .openai(.user(.init(content: "Original")))
+        ])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        let provider = ChatProvider()
+        provider.setup(chat: chat, currentModel: model, currentSource: source)
+        
+        let newMessages = [
+            Message.openai(.user(.init(content: "New message 1"))),
+            Message.openai(.assistant(.init(content: "New response", toolCalls: nil, audio: nil)))
+        ]
+        provider.updateMessages(newMessages)
+        
+        #expect(provider.messages.count == 2)
+        if case .openai(let msg, _) = provider.messages[0], case .user(let user) = msg {
+            #expect(user.content == "New message 1")
+        }
+    }
+    
+    @Test("updateMessages calls onMessageChange")
+    func testUpdateMessagesCallsOnMessageChange() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        var callCount = 0
+        let provider = ChatProvider()
+        provider.setup(
+            chat: chat,
+            currentModel: model,
+            currentSource: source,
+            onMessageChange: { _ in callCount += 1 }
+        )
+        
+        provider.updateMessages([.openai(.user(.init(content: "Test")))])
+        
+        #expect(callCount == 1)
+    }
+    
+    @Test("appendMessage adds message to chat")
+    func testAppendMessage() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        let provider = ChatProvider()
+        provider.setup(chat: chat, currentModel: model, currentSource: source)
+        
+        let newMessage = Message.openai(.user(.init(content: "Appended")))
+        provider.appendMessage(newMessage)
+        
+        #expect(provider.messages.count == 1)
+        #expect(provider.messages[0].id == newMessage.id)
+    }
+    
+    @Test("appendMessage calls onMessage callback")
+    func testAppendMessageCallsOnMessage() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        var receivedMessage: Message?
+        let provider = ChatProvider()
+        provider.setup(
+            chat: chat,
+            currentModel: model,
+            currentSource: source,
+            onMessage: { msg in receivedMessage = msg }
+        )
+        
+        let newMessage = Message.openai(.user(.init(content: "Test")))
+        provider.appendMessage(newMessage)
+        
+        #expect(receivedMessage?.id == newMessage.id)
+    }
+    
+    @Test("updateMessage by ID updates correct message")
+    func testUpdateMessageById() {
+        let originalMsg = Message.openai(.assistant(.init(content: "Original", toolCalls: nil, audio: nil)))
+        let chat = Chat(id: UUID(), gameId: "test", messages: [originalMsg])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        let provider = ChatProvider()
+        provider.setup(chat: chat, currentModel: model, currentSource: source)
+        
+        let updatedMsg = Message.openai(.assistant(.init(id: originalMsg.id, content: "Updated", toolCalls: nil, audio: nil)))
+        provider.updateMessage(id: originalMsg.id, with: updatedMsg)
+        
+        #expect(provider.messages.count == 1)
+        if case .openai(let msg, _) = provider.messages[0], case .assistant(let assistant) = msg {
+            #expect(assistant.content == "Updated")
+        }
+    }
+    
+    @Test("updateMessage with invalid ID does nothing")
+    func testUpdateMessageInvalidId() {
+        let originalMsg = Message.openai(.assistant(.init(content: "Original", toolCalls: nil, audio: nil)))
+        let chat = Chat(id: UUID(), gameId: "test", messages: [originalMsg])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        let provider = ChatProvider()
+        provider.setup(chat: chat, currentModel: model, currentSource: source)
+        
+        let updatedMsg = Message.openai(.assistant(.init(content: "Updated", toolCalls: nil, audio: nil)))
+        provider.updateMessage(id: "non-existent-id", with: updatedMsg)
+        
+        // Original message should be unchanged
+        #expect(provider.messages.count == 1)
+        if case .openai(let msg, _) = provider.messages[0], case .assistant(let assistant) = msg {
+            #expect(assistant.content == "Original")
+        }
+    }
+    
+    @Test("setStatus updates chat status")
+    func testSetStatus() {
+        let chat = Chat(id: UUID(), gameId: "test", messages: [])
+        let model = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        let source = Source.customAgent(id: "custom-source", displayName: "Custom", models: [model])
+        
+        let provider = ChatProvider()
+        provider.setup(chat: chat, currentModel: model, currentSource: source)
+        
+        #expect(provider.status == .idle)
+        
+        provider.setStatus(.loading)
+        #expect(provider.status == .loading)
+        
+        provider.setStatus(.idle)
+        #expect(provider.status == .idle)
     }
 }
 

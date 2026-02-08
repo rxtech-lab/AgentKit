@@ -40,7 +40,7 @@ struct ReasoningTests {
         var assistantMessages: [OpenAIAssistantMessage] = []
         for try await part in stream {
             if case .message(let msg) = part,
-                case .openai(let openAIMsg) = msg,
+                case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistantMsg) = openAIMsg
             {
                 assistantMessages.append(assistantMsg)
@@ -102,7 +102,7 @@ struct ReasoningTests {
         var assistantMessages: [OpenAIAssistantMessage] = []
         for try await part in stream {
             if case .message(let msg) = part,
-                case .openai(let openAIMsg) = msg,
+                case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistantMsg) = openAIMsg
             {
                 assistantMessages.append(assistantMsg)

@@ -263,27 +263,58 @@ struct AdditionalOpenAIToolMessageRowTests {
         _ = try view.find(ViewType.VStack.self)
     }
 
-    @Test func testToolResponseLookup() {
+    @Test func testToolResponseLookup() throws {
         let toolCall = OpenAIToolCall(
             id: "call_test",
             type: .function,
-            function: .init(name: "test", arguments: "{}")
+            function: .init(name: "test_function", arguments: "{\"key\": \"value\"}")
         )
         let messages: [OpenAIMessage] = [
             .user(.init(content: "user message")),
-            .tool(.init(content: "tool result", toolCallId: "call_test", name: "test")),
+            .tool(.init(content: "tool result", toolCallId: "call_test", name: "test_function")),
             .assistant(.init(content: "assistant", toolCalls: nil, audio: nil, reasoning: nil))
         ]
 
-        // Create row and check that it can find the tool response
         let row = OpenAIToolMessageRow(
             toolCall: toolCall,
             messages: messages,
             status: .idle
         )
 
-        // The row should find the tool response in the messages
-        #expect(row != nil)
+        // Verify the view renders with "complete" status (indicating response was found)
+        let view = try row.inspect()
+        let button = try view.find(ViewType.Button.self)
+        let label = try button.find(ViewType.Label.self)
+        let text = try label.find(ViewType.Text.self)
+        let textContent = try text.string()
+        #expect(textContent.contains("Tool call complete"))
+        #expect(textContent.contains("test_function"))
+    }
+
+    @Test func testToolResponseNotFound() throws {
+        let toolCall = OpenAIToolCall(
+            id: "call_missing",
+            type: .function,
+            function: .init(name: "missing_tool", arguments: "{}")
+        )
+        let messages: [OpenAIMessage] = [
+            .tool(.init(content: "result", toolCallId: "call_other", name: "other_tool"))
+        ]
+
+        let row = OpenAIToolMessageRow(
+            toolCall: toolCall,
+            messages: messages,
+            status: .idle
+        )
+
+        // When response not found and not loading, shows "Calling tool" with terminal icon
+        let view = try row.inspect()
+        let button = try view.find(ViewType.Button.self)
+        let label = try button.find(ViewType.Label.self)
+        let text = try label.find(ViewType.Text.self)
+        let textContent = try text.string()
+        #expect(textContent.contains("Calling tool"))
+        #expect(textContent.contains("missing_tool"))
     }
 }
 
@@ -343,6 +374,96 @@ struct AdditionalModelPickerTests {
             currentSource: Binding(get: { currentSource }, set: { currentSource = $0 }),
             sources: [currentSource],
             onClose: {}
+        )
+
+        let view = try picker.inspect()
+        _ = try view.find(ViewType.ScrollView.self)
+    }
+    
+    @Test func testModelPickerWithCustomAgentSource() throws {
+        let customAgent = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Custom Agent"))
+        var currentModel = customAgent
+        var currentSource = Source.customAgent(
+            id: "custom-agents",
+            displayName: "Custom Agents",
+            models: [customAgent]
+        )
+
+        let picker = ModelPicker(
+            currentModel: Binding(get: { currentModel }, set: { currentModel = $0 }),
+            currentSource: Binding(get: { currentSource }, set: { currentSource = $0 }),
+            sources: [currentSource],
+            onClose: {}
+        )
+
+        let view = try picker.inspect()
+        _ = try view.find(ViewType.ScrollView.self)
+    }
+    
+    @Test func testModelPickerWithMultipleCustomAgents() throws {
+        let agents: [Model] = [
+            .customAgent(CustomAgentModel(id: "agent-1", name: "Agent One")),
+            .customAgent(CustomAgentModel(id: "agent-2", name: "Agent Two")),
+            .customAgent(CustomAgentModel(id: "agent-3", name: "Agent Three"))
+        ]
+        var currentModel = agents[0]
+        var currentSource = Source.customAgent(
+            id: "custom-agents",
+            displayName: "Custom Agents",
+            models: agents
+        )
+
+        let picker = ModelPicker(
+            currentModel: Binding(get: { currentModel }, set: { currentModel = $0 }),
+            currentSource: Binding(get: { currentSource }, set: { currentSource = $0 }),
+            sources: [currentSource],
+            onClose: {}
+        )
+
+        let view = try picker.inspect()
+        _ = try view.find(ViewType.ScrollView.self)
+    }
+    
+    @Test func testModelPickerWithMixedSourcesIncludingCustomAgent() throws {
+        let openAISource = Source.openAI(
+            client: OpenAIClient(apiKey: "key"),
+            models: [.openAI(OpenAICompatibleModel(id: "gpt-4", name: "GPT-4"))]
+        )
+        let customAgentSource = Source.customAgent(
+            id: "custom-agents",
+            displayName: "Custom Agents",
+            models: [.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))]
+        )
+        
+        var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
+        var currentSource = openAISource
+
+        let picker = ModelPicker(
+            currentModel: Binding(get: { currentModel }, set: { currentModel = $0 }),
+            currentSource: Binding(get: { currentSource }, set: { currentSource = $0 }),
+            sources: [openAISource, customAgentSource],
+            onClose: {}
+        )
+
+        let view = try picker.inspect()
+        _ = try view.find(ViewType.ScrollView.self)
+    }
+    
+    @Test func testModelPickerSelectCustomAgent() throws {
+        let customAgent = Model.customAgent(CustomAgentModel(id: "my-agent", name: "My Agent"))
+        var currentModel = Model.openAI(OpenAICompatibleModel(id: "gpt-4"))
+        var currentSource = Source.customAgent(
+            id: "custom-agents",
+            displayName: "Custom Agents",
+            models: [customAgent]
+        )
+        
+        var closeCalled = false
+        let picker = ModelPicker(
+            currentModel: Binding(get: { currentModel }, set: { currentModel = $0 }),
+            currentSource: Binding(get: { currentSource }, set: { currentSource = $0 }),
+            sources: [currentSource],
+            onClose: { closeCalled = true }
         )
 
         let view = try picker.inspect()

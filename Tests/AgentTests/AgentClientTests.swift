@@ -102,7 +102,7 @@ struct AgentClientTests {
                     receivedContent += text
                 case .message(let msg):
                     messageCount += 1
-                    if case .openai(let openAIMsg) = msg {
+                    if case .openai(let openAIMsg, _) = msg {
                         if case .assistant(let a) = openAIMsg, let content = a.content {
                             print("Assistant Message: \(content)")
                         }
@@ -169,7 +169,7 @@ struct AgentClientTests {
 
             for try await part in stream {
                 if case .message(let msg) = part,
-                    case .openai(let openAIMsg) = msg,
+                    case .openai(let openAIMsg, _) = msg,
                     case .tool(let toolMsg) = openAIMsg
                 {
                     if toolMsg.toolCallId == "call_bad" {
@@ -230,7 +230,7 @@ struct AgentClientTests {
             var toolErrorFound = false
             for try await part in stream {
                 if case .message(let msg) = part,
-                    case .openai(let openAIMsg) = msg,
+                    case .openai(let openAIMsg, _) = msg,
                     case .tool(let toolMsg) = openAIMsg
                 {
                     if toolMsg.toolCallId == "call_missing" {
@@ -283,7 +283,7 @@ struct AgentClientTests {
             var toolErrorFound = false
             for try await part in stream {
                 if case .message(let msg) = part,
-                    case .openai(let openAIMsg) = msg,
+                    case .openai(let openAIMsg, _) = msg,
                     case .tool(let toolMsg) = openAIMsg
                 {
                     if toolMsg.toolCallId == "call_error" {

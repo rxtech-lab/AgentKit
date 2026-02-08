@@ -56,7 +56,7 @@ struct IntegrationTests {
         for try await part in stream {
             switch part {
             case .message(let msg):
-                if case .openai(let openAIMsg) = msg {
+                if case .openai(let openAIMsg, _) = msg {
                     // Check for tool call in assistant message
                     if case .assistant(let assistantMsg) = openAIMsg,
                         let toolCalls = assistantMsg.toolCalls,
@@ -136,7 +136,7 @@ struct IntegrationTests {
         for try await part in stream1 {
             if case .message(let msg) = part {
                 conversation.append(msg)  // Accumulate history
-                if case .openai(let openAIMsg) = msg {
+                if case .openai(let openAIMsg, _) = msg {
                     if case .tool = openAIMsg {
                         toolCalled = true
                     }
@@ -167,7 +167,7 @@ struct IntegrationTests {
 
         for try await part in stream2 {
             if case .message(let msg) = part {
-                if case .openai(let openAIMsg) = msg {
+                if case .openai(let openAIMsg, _) = msg {
                     if case .tool = openAIMsg {
                         toolCalled2 = true
                     }
@@ -224,7 +224,7 @@ struct IntegrationTests {
 
         var lastMessage: AgentResponsePart?
         for try await part in stream {
-            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+            if case .message(let msg) = part, case .openai(let openAIMsg, _) = msg {
                 lastMessage = part
                 if case .tool(let tm) = openAIMsg {
                     print("Tool output: \(tm.content)")
@@ -242,7 +242,7 @@ struct IntegrationTests {
 
         // check last message is a assistant message
         if let last = lastMessage, case .message(let msg) = last,
-            case .openai(let openAIMsg) = msg
+            case .openai(let openAIMsg, _) = msg
         {
             if case .assistant = openAIMsg {
                 // This is expected
@@ -295,7 +295,7 @@ struct IntegrationTests {
         var streamEndedWithoutToolResult = true
 
         for try await part in stream {
-            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+            if case .message(let msg) = part, case .openai(let openAIMsg, _) = msg {
                 if case .assistant(let am) = openAIMsg, let toolCalls = am.toolCalls {
                     if toolCalls.contains(where: { $0.function?.name == "show_confirmation" }) {
                         toolCallDetected = true
@@ -383,7 +383,7 @@ struct IntegrationTests {
 
         var generatedMessages: [OpenAIMessage] = []
         for try await part in stream {
-            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+            if case .message(let msg) = part, case .openai(let openAIMsg, _) = msg {
                 generatedMessages.append(openAIMsg)
             }
         }
@@ -443,7 +443,7 @@ struct IntegrationTests {
 
         var generatedMessages: [OpenAIMessage] = []
         for try await part in stream {
-            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+            if case .message(let msg) = part, case .openai(let openAIMsg, _) = msg {
                 generatedMessages.append(openAIMsg)
             }
         }
