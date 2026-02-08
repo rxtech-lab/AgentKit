@@ -41,17 +41,27 @@ struct MessageRow: View {
 
     var body: some View {
         switch message {
-        case .openai(let openAIMessage):
+        case .openai(let openAIMessage, _):
             OpenAIMessageRow(
                 id: id,
                 message: openAIMessage,
                 messages: messages.compactMap {
-                    if case .openai(let message) = $0 {
+                    if case .openai(let message, _) = $0 {
                         return message
                     }
                     return nil
-
                 },
+                status: status,
+                isLastMessage: isLastMessage,
+                onDelete: onDelete,
+                onEdit: onEdit,
+                onRegenerate: onRegenerate
+            )
+        case .generic(let genericMessage, _):
+            GenericMessageRow(
+                id: id,
+                message: genericMessage,
+                messages: messages.map { $0.asGeneric },
                 status: status,
                 isLastMessage: isLastMessage,
                 onDelete: onDelete,
@@ -65,6 +75,8 @@ struct MessageRow: View {
 #Preview {
     Group {
         MessageRow(id: "1", message: .openai(.user(.init(content: "Hi"))))
+        MessageRow(id: "2", message: .user("Hello from generic!"))
+        MessageRow(id: "3", message: .assistant("I'm a generic assistant response"))
     }
     .padding()
 }

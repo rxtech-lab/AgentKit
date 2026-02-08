@@ -41,6 +41,11 @@ struct ModelPicker: View {
                                     Image(systemName: "gear")
                                         .padding()
                                 }
+                                // if model is custom agent, show agent icon
+                                if case .customAgent = model {
+                                    Image(systemName: "person.crop.circle.badge.questionmark")
+                                        .padding()
+                                }
                                 if model == currentModel {
                                     Spacer()
                                     Image(systemName: "checkmark")

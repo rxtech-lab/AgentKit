@@ -28,11 +28,15 @@ public enum AgentClientError: LocalizedError {
 public enum Source: Identifiable, Sendable, Equatable {
     case openAI(client: OpenAIClient, models: [Model])
     case openRouter(client: OpenRouterClient, models: [Model])
+    /// A custom agent source that only shows labels in the picker.
+    /// No client is associated - the user handles message generation externally.
+    case customAgent(id: String, displayName: String, models: [Model])
 
     public var id: String {
         switch self {
         case .openAI: return "openai"
         case .openRouter: return "openrouter"
+        case .customAgent(let id, _, _): return id
         }
     }
 
@@ -45,6 +49,7 @@ public enum Source: Identifiable, Sendable, Equatable {
         switch self {
         case .openAI: return "OpenAI"
         case .openRouter: return "OpenRouter"
+        case .customAgent(_, let displayName, _): return displayName
         }
     }
 
@@ -52,14 +57,24 @@ public enum Source: Identifiable, Sendable, Equatable {
         switch self {
         case .openAI(_, let models): return models
         case .openRouter(_, let models): return models
+        case .customAgent(_, _, let models): return models
         }
     }
 
-    public var client: any ChatClient {
+    public var client: (any ChatClient)? {
         switch self {
         case .openAI(let client, _): return client
         case .openRouter(let client, _): return client
+        case .customAgent: return nil
         }
+    }
+    
+    /// Whether this source is a custom agent source
+    public var isCustomAgent: Bool {
+        if case .customAgent = self {
+            return true
+        }
+        return false
     }
 }
 
@@ -79,8 +94,14 @@ public actor AgentClient {
             }
             throw AgentClientError.invalidSource
         case .custom:
-            // Custom models can work with any source type
-            return source.client
+            // Custom models can work with any source type that has a client
+            guard let client = source.client else {
+                throw AgentClientError.invalidSource
+            }
+            return client
+        case .customAgent:
+            // Custom agents don't use a client - this should not be called
+            throw AgentClientError.invalidSource
         }
     }
 

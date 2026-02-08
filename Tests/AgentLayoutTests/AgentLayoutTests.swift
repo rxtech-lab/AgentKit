@@ -331,7 +331,7 @@ struct AgentLayoutTests {
 
         // Verify onSend was called
         #expect(sentMessage != nil)
-        if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        if case .openai(let openAIMsg, _) = sentMessage, case .user(let userMsg) = openAIMsg {
             #expect(userMsg.content == "Hello World")
         } else {
             #expect(Bool(false), "Expected user message")
@@ -414,7 +414,7 @@ struct AgentLayoutTests {
 
         // Verify onSend was called
         #expect(sentMessage != nil)
-        if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        if case .openai(let openAIMsg, _) = sentMessage, case .user(let userMsg) = openAIMsg {
             #expect(userMsg.content == "Test message")
         } else {
             #expect(Bool(false), "Expected user message")
@@ -489,7 +489,7 @@ struct AgentLayoutTests {
 
         // Verify onSend was called with the edited content
         #expect(sentMessage != nil, "Expected onSend to be called")
-        if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        if case .openai(let openAIMsg, _) = sentMessage, case .user(let userMsg) = openAIMsg {
             #expect(
                 userMsg.content == editedContent, "Expected onSend to be called with edited content"
             )
@@ -540,7 +540,7 @@ struct AgentLayoutTests {
 
         // Verify onSend was called with the original user message content
         #expect(sentMessage != nil, "Expected onSend to be called")
-        if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        if case .openai(let openAIMsg, _) = sentMessage, case .user(let userMsg) = openAIMsg {
             #expect(
                 userMsg.content == "User question",
                 "Expected onSend to be called with original user message")
@@ -597,7 +597,7 @@ struct AgentLayoutTests {
 
         // Verify onSend was called with the edited content
         #expect(sentMessage != nil, "Expected onSend to be called")
-        if case .openai(let openAIMsg) = sentMessage, case .user(let userMsg) = openAIMsg {
+        if case .openai(let openAIMsg, _) = sentMessage, case .user(let userMsg) = openAIMsg {
             #expect(
                 userMsg.content == editedContent, "Expected onSend to be called with edited content"
             )
@@ -673,7 +673,7 @@ struct AgentLayoutTests {
         var capturedStatus: ToolStatus?
 
         let renderer: MessageRenderer = { msg, _, _, status in
-            if case .openai(let m) = msg, case .assistant = m {
+            if case .openai(let m, _) = msg, case .assistant = m {
                 capturedStatus = status
             }
             return (AnyView(EmptyView()), .replace)
@@ -723,7 +723,7 @@ struct AgentLayoutTests {
         var capturedStatus: ToolStatus?
 
         let renderer: MessageRenderer = { msg, _, _, status in
-            if case .openai(let m) = msg, case .assistant = m {
+            if case .openai(let m, _) = msg, case .assistant = m {
                 capturedStatus = status
             }
             return (AnyView(EmptyView()), .replace)
@@ -794,7 +794,7 @@ struct AgentLayoutIntegrationTests {
         // Track if onMessage was called with rejection
         var rejectionMessageReceived = false
         let onMessage: (Message) -> Void = { message in
-            if case .openai(let openAIMsg) = message,
+            if case .openai(let openAIMsg, _) = message,
                 case .tool(let toolMsg) = openAIMsg,
                 toolMsg.content == ChatProvider.REJECT_MESSAGE_STRING
             {
@@ -900,7 +900,7 @@ struct AgentLayoutIntegrationTests {
 
         // Should have received the second response
         let assistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant = openAIMsg
             {
                 return true
@@ -960,7 +960,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify we received the assistant message
         let assistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant = openAIMsg
             {
                 return true
@@ -970,7 +970,7 @@ struct AgentLayoutIntegrationTests {
         #expect(assistantMessages.count == 1, "Expected 1 assistant message")
 
         // Verify the message content is correct
-        if case .openai(let openAIMsg) = assistantMessages[0],
+        if case .openai(let openAIMsg, _) = assistantMessages[0],
             case .assistant(let assistantMsg) = openAIMsg
         {
             #expect(assistantMsg.content == "First response")
@@ -1067,7 +1067,7 @@ struct AgentLayoutIntegrationTests {
         var capturedStatus: ToolStatus?
 
         let renderer: MessageRenderer = { msg, _, _, status in
-            if case .openai(let m) = msg, case .assistant = m {
+            if case .openai(let m, _) = msg, case .assistant = m {
                 capturedStatus = status
             }
             return (AnyView(EmptyView()), .replace)
@@ -1151,7 +1151,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify onMessage was called for each tool rejection
         let toolMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .tool = openAIMsg
             {
                 return true
@@ -1163,7 +1163,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify the rejection messages have correct content
         for toolMsg in toolMessages {
-            if case .openai(let openAIMsg) = toolMsg,
+            if case .openai(let openAIMsg, _) = toolMsg,
                 case .tool(let tool) = openAIMsg
             {
                 #expect(
@@ -1233,7 +1233,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify onMessage was called with an assistant message that has tool calls
         let assistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistant) = openAIMsg,
                 let toolCalls = assistant.toolCalls,
                 !toolCalls.isEmpty
@@ -1248,7 +1248,7 @@ struct AgentLayoutIntegrationTests {
             "Expected onMessage to be called once with assistant message containing tool calls")
 
         // Verify the tool call details
-        if case .openai(let openAIMsg) = assistantMessages[0],
+        if case .openai(let openAIMsg, _) = assistantMessages[0],
             case .assistant(let assistant) = openAIMsg,
             let toolCalls = assistant.toolCalls
         {
@@ -1324,7 +1324,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify onMessage was called for tool result
         let toolMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .tool = openAIMsg
             {
                 return true
@@ -1335,7 +1335,7 @@ struct AgentLayoutIntegrationTests {
         #expect(toolMessages.count == 1, "Expected onMessage to be called once with tool result")
 
         // Verify the tool result details
-        if case .openai(let openAIMsg) = toolMessages[0],
+        if case .openai(let openAIMsg, _) = toolMessages[0],
             case .tool(let toolMsg) = openAIMsg
         {
             #expect(toolMsg.toolCallId == toolCallId, "Tool call ID should match")
@@ -1349,7 +1349,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify onMessage was also called for the assistant message with tool calls
         let assistantWithToolCalls = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistant) = openAIMsg,
                 let toolCalls = assistant.toolCalls,
                 !toolCalls.isEmpty
@@ -1364,7 +1364,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify final assistant message was also received
         let finalAssistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistant) = openAIMsg,
                 assistant.toolCalls == nil,
                 let content = assistant.content,
@@ -1668,7 +1668,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify all messages were received via onMessage callback
         let assistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg, case .assistant = openAIMsg {
+            if case .openai(let openAIMsg, _) = msg, case .assistant = openAIMsg {
                 return true
             }
             return false
@@ -1680,7 +1680,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify the final assistant message has the expected content
         let finalAssistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant(let assistant) = openAIMsg,
                 assistant.toolCalls == nil,
                 let content = assistant.content,
@@ -1762,7 +1762,7 @@ struct AgentLayoutIntegrationTests {
 
         // Verify received assistant messages via callback
         let assistantMessages = receivedMessages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant = openAIMsg
             {
                 return true
@@ -1772,7 +1772,7 @@ struct AgentLayoutIntegrationTests {
         #expect(assistantMessages.count == 2, "Expected 2 assistant messages")
 
         // Verify first assistant response content
-        if case .openai(let openAIMsg) = assistantMessages[0],
+        if case .openai(let openAIMsg, _) = assistantMessages[0],
             case .assistant(let assistantMsg) = openAIMsg
         {
             #expect(assistantMsg.content == "This is the first response")
@@ -1781,7 +1781,7 @@ struct AgentLayoutIntegrationTests {
         }
 
         // Verify second assistant response content
-        if case .openai(let openAIMsg) = assistantMessages[1],
+        if case .openai(let openAIMsg, _) = assistantMessages[1],
             case .assistant(let assistantMsg) = openAIMsg
         {
             #expect(assistantMsg.content == "This is the second response")

@@ -53,7 +53,7 @@ struct OpenAIChatProcessor {
         return AsyncThrowingStream { continuation in
             Task { @Sendable in
                 var currentMessages: [OpenAIMessage] = messages.compactMap { msg in
-                    if case .openai(let m) = msg { return m }
+                    if case .openai(let m, _) = msg { return m }
                     return nil
                 }
 

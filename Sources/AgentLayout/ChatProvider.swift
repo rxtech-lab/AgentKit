@@ -50,6 +50,10 @@ public class ChatProvider: ChatProviderProtocol {
     public var onEdit: ((Int, Message) -> Void)?
     public var onMessageChange: (([Message]) -> Void)?
     public var onError: ((Error) -> Void)?
+    /// Called when a custom agent is selected and user sends a message.
+    /// The callback receives the user message and current messages array.
+    /// User is responsible for updating messages via updateMessages() method.
+    public var onCustomAgentSend: ((String, [Message]) -> Void)?
 
     // MARK: - Internal State (not observed)
     @ObservationIgnored private var agentClient = AgentClient()
@@ -71,7 +75,7 @@ public class ChatProvider: ChatProviderProtocol {
 
         guard
             let lastAssistantIndex = chat.messages.lastIndex(where: {
-                if case .openai(let m) = $0, case .assistant(let a) = m,
+                if case .openai(let m, _) = $0, case .assistant(let a) = m,
                     let tc = a.toolCalls, !tc.isEmpty
                 {
                     return true
@@ -81,7 +85,7 @@ public class ChatProvider: ChatProviderProtocol {
         else { return false }
 
         let assistantMsg = chat.messages[lastAssistantIndex]
-        guard case .openai(let m) = assistantMsg,
+        guard case .openai(let m, _) = assistantMsg,
             case .assistant(let a) = m,
             let toolCalls = a.toolCalls
         else { return false }
@@ -90,7 +94,7 @@ public class ChatProvider: ChatProviderProtocol {
         var resolvedIds = Set<String>()
 
         for i in (lastAssistantIndex + 1)..<chat.messages.count {
-            if case .openai(let m) = chat.messages[i], case .tool(let t) = m {
+            if case .openai(let m, _) = chat.messages[i], case .tool(let t) = m {
                 resolvedIds.insert(t.toolCallId)
             }
         }
@@ -114,7 +118,8 @@ public class ChatProvider: ChatProviderProtocol {
         onMessage: ((Message) -> Void)? = nil,
         onDelete: ((Int) -> Void)? = nil,
         onEdit: ((Int, Message) -> Void)? = nil,
-        onMessageChange: (([Message]) -> Void)? = nil
+        onMessageChange: (([Message]) -> Void)? = nil,
+        onCustomAgentSend: ((String, [Message]) -> Void)? = nil
     ) {
         // Allow setup if not yet setup OR if chat ID changed (view was recreated)
         let shouldSetup = !isSetup || self.chat?.id != chat.id
@@ -136,6 +141,7 @@ public class ChatProvider: ChatProviderProtocol {
         self.onDelete = onDelete
         self.onEdit = onEdit
         self.onMessageChange = onMessageChange
+        self.onCustomAgentSend = onCustomAgentSend
         self.isSetup = true
     }
 
@@ -171,7 +177,7 @@ public class ChatProvider: ChatProviderProtocol {
             var toolName: String?
             if let chat = self.chat {
                 for message in chat.messages.reversed() {
-                    if case .openai(let openAIMsg) = message,
+                    if case .openai(let openAIMsg, _) = message,
                         case .assistant(let assistant) = openAIMsg,
                         let toolCalls = assistant.toolCalls
                     {
@@ -323,7 +329,7 @@ public class ChatProvider: ChatProviderProtocol {
 
                     case .message(let msg):
                         var shouldScroll = false
-                        if case .openai(let openAIMsg) = msg,
+                        if case .openai(let openAIMsg, _) = msg,
                             case .assistant = openAIMsg.role
                         {
                             if let index = self.chat?.messages.firstIndex(where: {
@@ -388,6 +394,12 @@ public class ChatProvider: ChatProviderProtocol {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.scrollToBottom?()
+        }
+
+        // If custom agent is selected, call the custom agent callback instead of starting generation
+        if currentModel.isCustomAgent {
+            onCustomAgentSend?(message, self.chat?.messages ?? [])
+            return
         }
 
         startGeneration(source: currentSource, model: currentModel, userMessage: message)
@@ -504,7 +516,7 @@ public class ChatProvider: ChatProviderProtocol {
 
                     case .message(let msg):
                         var shouldScroll = false
-                        if case .openai(let openAIMsg) = msg,
+                        if case .openai(let openAIMsg, _) = msg,
                             case .assistant = openAIMsg.role
                         {
                             if let index = self.chat?.messages.firstIndex(where: {
@@ -575,7 +587,7 @@ public class ChatProvider: ChatProviderProtocol {
         let targetMessage = chat.messages[index]
 
         // Check if target is a user message
-        if case .openai(let openAIMsg) = targetMessage,
+        if case .openai(let openAIMsg, _) = targetMessage,
             case .user = openAIMsg
         {
             // User message: remove everything after it (keep the user message)
@@ -590,7 +602,7 @@ public class ChatProvider: ChatProviderProtocol {
         // Assistant/other message: find preceding user message and remove from target onwards
         var userMessageContent: String? = nil
         for i in stride(from: index - 1, through: 0, by: -1) {
-            if case .openai(let openAIMsg) = chat.messages[i],
+            if case .openai(let openAIMsg, _) = chat.messages[i],
                 case .user(let userMsg) = openAIMsg
             {
                 userMessageContent = userMsg.content
@@ -630,7 +642,7 @@ public class ChatProvider: ChatProviderProtocol {
             guard let chat = chat else { return }
 
             if let lastAssistantIndex = chat.messages.lastIndex(where: {
-                if case .openai(let m) = $0, case .assistant(let a) = m,
+                if case .openai(let m, _) = $0, case .assistant(let a) = m,
                     let tc = a.toolCalls, !tc.isEmpty
                 {
                     return true
@@ -638,13 +650,13 @@ public class ChatProvider: ChatProviderProtocol {
                 return false
             }) {
                 let assistantMsg = chat.messages[lastAssistantIndex]
-                if case .openai(let m) = assistantMsg,
+                if case .openai(let m, _) = assistantMsg,
                     case .assistant(let a) = m,
                     let toolCalls = a.toolCalls
                 {
                     for toolCall in toolCalls {
                         let alreadyResolved = chat.messages.contains { msg in
-                            if case .openai(let m) = msg, case .tool(let t) = m {
+                            if case .openai(let m, _) = msg, case .tool(let t) = m {
                                 return t.toolCallId == toolCall.id
                             }
                             return false
@@ -674,7 +686,7 @@ public class ChatProvider: ChatProviderProtocol {
     }
 
     public func getToolStatus(for message: Message, in messages: [Message]) -> ToolStatus {
-        guard case .openai(let openAIMessage) = message,
+        guard case .openai(let openAIMessage, _) = message,
             case .assistant(let assistantMessage) = openAIMessage,
             let toolCalls = assistantMessage.toolCalls,
             !toolCalls.isEmpty
@@ -689,7 +701,7 @@ public class ChatProvider: ChatProviderProtocol {
         }
 
         for j in (index + 1)..<messages.count {
-            if case .openai(let nextMsg) = messages[j],
+            if case .openai(let nextMsg, _) = messages[j],
                 case .tool(let toolMsg) = nextMsg
             {
                 if toolCallIds.contains(toolMsg.toolCallId) {
@@ -720,6 +732,46 @@ public class ChatProvider: ChatProviderProtocol {
 
     public func updateSystemPrompt(_ newSystemPrompt: String?) {
         self.systemPrompt = newSystemPrompt
+    }
+    
+    // MARK: - Custom Agent Support
+    
+    /// Updates messages for custom agent flow.
+    /// Use this method when handling custom agents to provide message updates externally.
+    /// - Parameter messages: The new messages array to set
+    public func updateMessages(_ messages: [Message]) {
+        self.chat?.messages = messages
+        notifyMessageChange()
+    }
+    
+    /// Appends a message for custom agent flow.
+    /// - Parameter message: The message to append
+    public func appendMessage(_ message: Message) {
+        self.chat?.messages.append(message)
+        onMessage?(message)
+        notifyMessageChange()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.scrollToBottom?()
+        }
+    }
+    
+    /// Updates a specific message by ID for custom agent flow.
+    /// Useful for streaming updates where you want to update content progressively.
+    /// - Parameters:
+    ///   - messageId: The ID of the message to update
+    ///   - message: The new message content
+    public func updateMessage(id messageId: String, with message: Message) {
+        guard let index = chat?.messages.firstIndex(where: { $0.id == messageId }) else { return }
+        chat?.messages[index] = message
+        notifyMessageChange()
+    }
+    
+    /// Sets the status for custom agent flow.
+    /// Use .loading when starting generation, .idle when complete.
+    /// - Parameter newStatus: The new status to set
+    public func setStatus(_ newStatus: ChatStatus) {
+        self.status = newStatus
     }
 
     /**

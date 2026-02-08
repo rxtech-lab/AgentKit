@@ -120,6 +120,18 @@ public struct CustomModel: Identifiable, Hashable, Sendable {
     }
 }
 
+/// A custom agent that only shows a label in the model picker but doesn't trigger agent generation.
+/// When selected, the user is responsible for providing message updates externally.
+public struct CustomAgentModel: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let name: String
+    
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
 public enum Provider: Identifiable, Hashable, Sendable {
     case openAI
     case openRouter
@@ -164,6 +176,9 @@ public enum Model: Identifiable, Hashable, Sendable {
     case openRouter(OpenAICompatibleModel)
     /// A custom model that you are using from an endpoint
     case custom(CustomModel)
+    /// A custom agent that only shows a label in the picker but doesn't trigger agent generation.
+    /// When selected, the user is responsible for providing message updates via ChatProvider.updateMessages().
+    case customAgent(CustomAgentModel)
 
     public var id: String {
         switch self {
@@ -172,6 +187,8 @@ public enum Model: Identifiable, Hashable, Sendable {
         case .openRouter(let model):
             return model.id
         case .custom(let model):
+            return model.id
+        case .customAgent(let model):
             return model.id
         }
     }
@@ -184,7 +201,17 @@ public enum Model: Identifiable, Hashable, Sendable {
             return model.name ?? model.id
         case .custom(let model):
             return model.id
+        case .customAgent(let model):
+            return model.name
         }
+    }
+    
+    /// Whether this model is a custom agent that doesn't use the agent loop
+    public var isCustomAgent: Bool {
+        if case .customAgent = self {
+            return true
+        }
+        return false
     }
 
     /// Get the reasoning configuration for this model.
@@ -208,6 +235,8 @@ public enum Model: Identifiable, Hashable, Sendable {
             return model.supportsReasoning ? .default : nil
         case .custom(let model):
             return model.reasoningConfig
+        case .customAgent:
+            return nil
         }
     }
 }

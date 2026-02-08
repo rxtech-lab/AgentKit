@@ -74,7 +74,7 @@ struct OpenAIOpenRouterTests {
 
         var generatedMessages: [OpenAIMessage] = []
         for try await part in stream {
-            if case .message(let msg) = part, case .openai(let openAIMsg) = msg {
+            if case .message(let msg) = part, case .openai(let openAIMsg, _) = msg {
                 generatedMessages.append(openAIMsg)
             }
         }
@@ -160,7 +160,7 @@ struct OpenAIOpenRouterTests {
 
         // Verify we got an assistant response with content
         let lastAssistantMessage = allMessages.last { msg in
-            if case .openai(let openAIMsg) = msg, case .assistant = openAIMsg {
+            if case .openai(let openAIMsg, _) = msg, case .assistant = openAIMsg {
                 return true
             }
             return false
@@ -190,7 +190,7 @@ struct OpenAIOpenRouterTests {
         #expect(!secondTurnMessages.isEmpty, "Second turn should produce messages")
 
         // The last message should be an assistant message
-        if let lastMsg = secondTurnMessages.last, case .openai(let openAIMsg) = lastMsg {
+        if let lastMsg = secondTurnMessages.last, case .openai(let openAIMsg, _) = lastMsg {
             #expect(openAIMsg.role == .assistant, "Last message should be an assistant message")
         } else {
             Issue.record("Expected assistant message in second turn")

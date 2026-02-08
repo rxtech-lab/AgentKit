@@ -175,7 +175,7 @@ struct ChatProviderRegenerateTests {
         #expect(provider.messages[0].id == userMsgId)
 
         // New assistant message should have new content
-        if case .openai(let openAIMsg) = provider.messages[1],
+        if case .openai(let openAIMsg, _) = provider.messages[1],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "Hello! How can I help?")
@@ -222,7 +222,7 @@ struct ChatProviderRegenerateTests {
         #expect(provider.messages[2].id == user2Id)
 
         // Last message should be new assistant with new content
-        if case .openai(let openAIMsg) = provider.messages[3],
+        if case .openai(let openAIMsg, _) = provider.messages[3],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "I'm doing fantastic!")
@@ -273,7 +273,7 @@ struct ChatProviderRegenerateTests {
         #expect(!messageIds.contains(assistant2.id))
 
         // New assistant message should have new content
-        if case .openai(let openAIMsg) = provider.messages[1],
+        if case .openai(let openAIMsg, _) = provider.messages[1],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "New response!")
@@ -317,7 +317,7 @@ struct ChatProviderRegenerateTests {
         #expect(provider.messages[0].id == userMsg.id)
 
         // New assistant message should have new content and different ID
-        if case .openai(let openAIMsg) = provider.messages[1],
+        if case .openai(let openAIMsg, _) = provider.messages[1],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "Hello! How can I help?")
@@ -367,7 +367,7 @@ struct ChatProviderRegenerateTests {
         #expect(provider.messages[2].id == user2.id)
 
         // Last message should have new content
-        if case .openai(let openAIMsg) = provider.messages[3],
+        if case .openai(let openAIMsg, _) = provider.messages[3],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "I'm doing fantastic!")
@@ -419,7 +419,7 @@ struct ChatProviderRegenerateTests {
         #expect(!messageIds.contains(assistant2.id))
 
         // New assistant message should have new content
-        if case .openai(let openAIMsg) = provider.messages[1],
+        if case .openai(let openAIMsg, _) = provider.messages[1],
             case .assistant(let newAssistant) = openAIMsg
         {
             #expect(newAssistant.content == "New response!")
@@ -456,7 +456,7 @@ struct ChatProviderRegenerateTests {
 
         // Count assistant messages
         let assistantMessages = provider.messages.filter { msg in
-            if case .openai(let openAIMsg) = msg,
+            if case .openai(let openAIMsg, _) = msg,
                 case .assistant = openAIMsg
             {
                 return true

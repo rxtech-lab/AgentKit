@@ -61,6 +61,7 @@ public struct AgentLayout: View {
     private let onDelete: ((Int) -> Void)?
     private let onEdit: ((Int, Message) -> Void)?
     private let onMessageChange: (([Message]) -> Void)?
+    private let onCustomAgentSend: ((String, [Message]) -> Void)?
 
     public init(
         chatProvider: ChatProvider,
@@ -75,6 +76,7 @@ public struct AgentLayout: View {
         onDelete: ((Int) -> Void)? = nil,
         onEdit: ((Int, Message) -> Void)? = nil,
         onMessageChange: (([Message]) -> Void)? = nil,
+        onCustomAgentSend: ((String, [Message]) -> Void)? = nil,
         renderMessage: MessageRenderer? = nil,
         contentMaxWidth: CGFloat = 800
     ) {
@@ -90,6 +92,7 @@ public struct AgentLayout: View {
         self.onDelete = onDelete
         self.onEdit = onEdit
         self.onMessageChange = onMessageChange
+        self.onCustomAgentSend = onCustomAgentSend
         self.renderMessage = renderMessage
         self.contentMaxWidth = contentMaxWidth
     }
@@ -111,12 +114,8 @@ public struct AgentLayout: View {
                         LazyVStack(spacing: 5) {
                             ForEach(
                                 chatProvider.messages.filter { message in
-                                    if case .openai(let openAIMessage) = message,
-                                        case .tool = openAIMessage.role
-                                    {
-                                        return false
-                                    }
-                                    return true
+                                    // Filter out tool messages (they are displayed inline with assistant messages)
+                                    return message.role != .tool
                                 }
                             ) { message in
                                 if let renderMessage = renderMessage {
@@ -250,7 +249,8 @@ public struct AgentLayout: View {
                             onMessage: onMessage,
                             onDelete: onDelete,
                             onEdit: onEdit,
-                            onMessageChange: onMessageChange
+                            onMessageChange: onMessageChange,
+                            onCustomAgentSend: onCustomAgentSend
                         )
 
                         chatProvider.scrollToBottom = {
@@ -382,6 +382,7 @@ public struct AgentLayout: View {
         id: UUID(),
         gameId: "preview",
         messages: [
+            // OpenAI message format
             .openai(.user(.init(content: "Hello, how are you?"))),
             .openai(
                 .assistant(
@@ -389,6 +390,9 @@ public struct AgentLayout: View {
                         content: "I'm doing well, thank you! How can I help you today?", audio: nil
                     )
                 )),
+            // Generic message format (convenience initializers)
+            .user("This is a generic user message"),
+            .assistant("This is a generic assistant response"),
         ]
     )
 
