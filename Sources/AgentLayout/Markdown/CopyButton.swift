@@ -27,9 +27,13 @@ struct CopyButton: View {
     }
 
     func onCopied() async {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(content, forType: .string)
+        #if canImport(UIKit)
+            UIPasteboard.general.string = content
+        #elseif canImport(AppKit)
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(content, forType: .string)
+        #endif
         copied = true
         // Wait 1.5 secs
         try? await Task.sleep(for: .seconds(1.5))
