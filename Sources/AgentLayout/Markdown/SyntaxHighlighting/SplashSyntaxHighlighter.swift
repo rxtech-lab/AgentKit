@@ -40,7 +40,11 @@ extension TextOutputFormat {
         fileprivate init(theme: Splash.Theme) {
             var theme = theme
 
+            #if canImport(UIKit)
+            theme.plainTextColor = .label
+            #elseif canImport(AppKit)
             theme.plainTextColor = .textColor
+            #endif
             theme.tokenColors[.keyword] = .blue
             theme.tokenColors[.string] = .blue
             theme.tokenColors[.comment] = .gray
@@ -52,14 +56,28 @@ extension TextOutputFormat {
         }
 
         mutating func addToken(_ token: String, ofType type: TokenType) {
+            #if canImport(UIKit)
+            let color = self.theme.tokenColors[type] ?? .label
+            #elseif canImport(AppKit)
             let color = self.theme.tokenColors[type] ?? .textColor
+            #endif
+            #if canImport(UIKit)
+            self.accumulatedText.append(Text(token).foregroundColor(.init(uiColor: color)))
+            #elseif canImport(AppKit)
             self.accumulatedText.append(Text(token).foregroundColor(.init(nsColor: color)))
+            #endif
         }
 
         mutating func addPlainText(_ text: String) {
+            #if canImport(UIKit)
+            self.accumulatedText.append(
+                Text(text).foregroundColor(.init(uiColor: self.theme.plainTextColor))
+            )
+            #elseif canImport(AppKit)
             self.accumulatedText.append(
                 Text(text).foregroundColor(.init(nsColor: self.theme.plainTextColor))
             )
+            #endif
         }
 
         mutating func addWhitespace(_ whitespace: String) {
